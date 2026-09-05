@@ -106,80 +106,23 @@ function setupStage3() {
     updateHpUI();
 }
 
-// ==========================================
-// 修正與更新後的技能、UI 函式區塊
-// ==========================================
-
 function triggerShield() {
-    // 檢查防禦是否就緒
     if (!isShieldReady || !isPlayingG) return;
-    
     isShieldReady = false;
     isShieldActive = true;
-    
-    // 顯示護盾特效
-    if (shieldEff) {
-        shieldEff.style.display = 'block';
-    }
-    
-    if (cdShieldEl) {
-        cdShieldEl.innerHTML = `神聖防禦 [R]: <span style="color:#ffcc00">🛡️ 防禦中 (15s)</span>`;
-    }
+    shieldEff.style.display = 'block';
+    cdShieldEl.innerHTML = `神聖防禦 [R]: <span style="color:#ff3333">CD中</span>`;
 
-    // 【15 秒後】護盾消失，解除無敵狀態，並進入 1.2 秒冷卻
     setTimeout(() => {
         isShieldActive = false;
-        if (shieldEff) {
-            shieldEff.style.display = 'none';
-        }
-        
-        // 開始進入 1.2 秒冷卻倒數
-        startShieldCooldown(1.2);
-    }, 15000); // 15000 毫秒 = 15 秒
+        shieldEff.style.display = 'none';
+    }, 500);
+
+    setTimeout(() => {
+        isShieldReady = true;
+        if (isPlayingG) cdShieldEl.innerHTML = `神聖防禦 [R]: <span style="color:#00ffcc">準備就緒</span>`;
+    }, 200000);
 }
-
-// 護盾冷卻倒數計時器
-function startShieldCooldown(seconds) {
-    let remainingTime = seconds;
-    
-    if (cdShieldEl) {
-        cdShieldEl.innerHTML = `神聖防禦 [R]: <span style="color:#ff3333">CD: ${remainingTime.toFixed(1)}s</span>`;
-    }
-
-    // 每 100 毫秒 (0.1秒) 更新一次 UI，讓小數點倒數看起來更流暢
-    const cooldownInterval = setInterval(() => {
-        remainingTime -= 0.1;
-        
-        if (remainingTime <= 0) {
-            clearInterval(cooldownInterval);
-            isShieldReady = true;
-            if (isPlayingG && cdShieldEl) {
-                cdShieldEl.innerHTML = `神聖防禦 [R]: <span style="color:#00ffcc">準備就緒</span>`;
-            }
-        } else {
-            if (cdShieldEl) {
-                cdShieldEl.innerHTML = `神聖防禦 [R]: <span style="color:#ff3333">CD: ${remainingTime.toFixed(1)}s</span>`;
-            }
-        }
-    }, 100);
-}
-
-// 補全原本未完成的 updateHpUI 函式
-function updateHpUI() {
-    if (pHpBar) {
-        pHpBar.style.width = (playerHp / 120) * 100 + '%';
-    }
-    if (pHpText) {
-        pHpText.textContent = `${Math.floor(playerHp)} / 120`;
-    }
-    if (bHpBar && BossAI && BossAI.bossHp !== undefined) {
-        bHpBar.style.width = (BossAI.bossHp / 1200) * 100 + '%';
-    }
-    if (bHpText && BossAI && BossAI.bossHp !== undefined) {
-        bHpText.textContent = `${Math.floor(BossAI.bossHp)} / 1200`;
-    }
-}
-
 
 function triggerAttack() {
     if (currentStage !== 3 || !isPlayingG) return;

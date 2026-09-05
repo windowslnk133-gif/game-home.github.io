@@ -1,0 +1,23 @@
+{
+  "stage1": {
+    "name": "第 1 關 - 逃離異變之家 (遠端連線)",
+    "objective": "任務：調查沙發(🛋️)、桌子(🪑)、鞋櫃(👞)找出大門鑰匙！",
+    "familySpeed": {
+      "dad": 3,
+      "mom": -4,
+      "dog": 5
+    }
+  },
+  "stage2": {
+    "name": "第 2 關 - 極限生死公路 (遠端連線)",
+    "objective": "任務：瘋狂前進！躲避迎面駛來的俄亥俄泥頭卡車(🚚)！",
+    "truckSpeed": 9,
+    "spawnRate": 45
+  },
+  "stage3": {
+    "name": "第 3 關 - 決戰 ACE 公司 (遠端連線)",
+    "objective": "任務：靠近黑心老闆按 [E] 揮翅暴打，逼他噴工資！千萬不要踩電腦！",
+    "bossHp": 1200,
+    "bossAttackRate": 90
+  }
+}

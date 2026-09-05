@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+    <title>Only in Ohio 2：GitHub 遠端完全體版</title>
+    <link rel="stylesheet" href="ohio-css.css">
+</head>
+<body>
+
+    
+    <script src="https://google.com" async defer></script>
+
+    <!-- 🔐 頂部 Google 登入與實名驗證控制列 -->
+    <div id="google-auth-box" style="width: 100vw; background: rgba(0,0,0,0.85); padding: 10px; display: flex; justify-content: center; align-items: center; gap: 15px; border-bottom: 2px solid #ffcc00; z-index: 200; position: relative;">
+        <span id="google-user-status" style="color: #ff3333; font-size: 14px; font-weight: bold; text-shadow: 0 0 5px rgba(255,51,85,0.3);">[未登入] 俄亥俄不認可無名之輩</span>
+        <!-- Google 官方登入按鈕渲染錨點 -->
+        <div id="google-login-btn"></div>
+    </div>
+
+    <!-- 📊 HUD 數據面板 -->
+    <div id="hud">
+        <div class="hud-title">連線狀態: <span id="current-stage-text" style="color: #ff3333;">正在連線至 GitHub 遠端伺服器...</span></div>
+        <div class="bar-container">
+            <div class="bar-wrapper">
+                <span>巨鴨血量 (HP)</span>
+                <div class="bar-bg">
+                    <div id="player-hp-bar"></div>
+                    <div class="bar-text" id="player-hp-text">120 / 120</div>
+                </div>
+            </div>
+            <div class="bar-wrapper" id="boss-hud" style="display: none;">
+                <span>ACE公司黑心老闆 (BOSS HP)</span>
+                <div class="bar-bg">
+                    <div id="boss-hp-bar"></div>
+                    <div class="bar-text" id="boss-hp-text">1200 / 1200</div>
+                </div>
+            </div>
+        </div>
+        <div id="status-row">
+            <span id="cd-shield">神聖防禦 [R]: <span style="color:#00ffcc">準備就緒</span></span>
+            <span id="timer-wrapper">通關耗時: <span id="timer-display">0.0</span> 秒</span>
+            <span id="objective-text">正在請求俄亥俄遠端環境配置...</span>
+        </div>
+    </div>
+
+    <!-- 🎬 遊戲主舞台 -->
+    <div id="game-stage">
+        <div id="announcement">STAGE 1</div>
+        <div id="ground"></div>
+
+        <!-- 玩家巨鴨本體 -->
+        <div id="player">🦆<div id="shield-effect">🛡️</div></div>
+
+        <!-- 第 1 關：異變之家元件容器 -->
+        <div id="stage1-elements">
+            <!-- 可調查點（沙發、桌子、鞋子） -->
+            <div class="solid-obj" id="sofa" data-name="沙發" style="left: 250px; bottom: 40px;">🛋️</div>
+            <div class="solid-obj" id="table" data-name="桌子" style="left: 500px; bottom: 40px;">🪑</div>
+            <div class="solid-obj" id="shoes" data-name="鞋子" style="left: 750px; bottom: 40px;">👞</div>
+            
+            <!-- 固體障礙物物 -->
+            <div class="solid-block" style="left: 180px; bottom: 40px;">💧</div>
+            <div class="solid-block" style="left: 420px; bottom: 40px;">🕷️</div>
+            <div class="solid-block" style="left: 680px; bottom: 40px;">📱</div>
+
+            <!-- 魔性移動的家人 -->
+            <div class="family-member" id="member-dad" style="left: 350px;">👨</div>
+            <div class="family-member" id="member-mom" style="left: 600px;">👩</div>
+            <div class="family-member" id="member-dog" style="left: 850px;">🐶</div>
+
+            <!-- 終點大門 -->
+            <div id="home-door" style="position: absolute; right: 20px; bottom: 40px; font-size: 50px;">🚪</div>
+        </div>
+
+        <!-- 第 2 關：生死公路元件容器 (動態刷出卡車) -->
+        <div id="stage2-elements" style="display: none;"></div>
+
+        <!-- 第 3 關：大鬧 ACE 公司元件容器 -->
+        <div id="stage3-elements" style="display: none;">
+            <div id="boss">👨‍💼</div>
+            <div id="computer-indicator"></div>
+            <div id="computer-boss" style="display: none; position: absolute; bottom: 40px; font-size: 70px; z-index: 5;">🖥️</div>
+        </div>
+    </div>
+
+    <!-- 蓋台彈窗與 JSON 排行榜 -->
+    <div id="game-overlay" style="display: none;">
+        <h2 id="overlay-title">決戰俄亥俄之巔</h2>
+        <p id="overlay-desc">遠端載入中...</p>
+        
+        <!-- JSON 排行榜渲染顯示區 -->
+        <div id="leaderboard-area" style="display: none;">
+            <h4>🏆 俄亥俄最速巨鴨榜 (JSON 存檔)</h4>
+            <ol id="leaderboard-list"></ol>
+        </div>
+
+        <button id="game-overlay-btn">開戰！</button>
+    </div>
+
+    <!-- 📱 行動裝置專用：手機端半透明虛擬按鍵面板 -->
+    <div id="mobile-controls">
+        <div style="display: flex; gap: 10px;">
+            <div class="mobile-btn" id="mb-left">A</div>
+            <div class="mobile-btn" id="mb-right">D</div>
+        </div>
+        <div class="mobile-btn" id="mb-attack">E</div>
+    </div>
+
+    <!-- 隱藏的音效播放器掛載點 -->
+    <div id="yt-players" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;">
+        <div id="sfx-player"></div>
+    </div>
+
+    <!-- 💡 傳統網頁有序加載大腦核心控制碼 -->
+    <!-- 💡 傳統網頁有序加載：先載入關卡大腦，再載入主核心控制大腦 -->
+    <script src="ohio-js2.js"></script>
+    <script src="ohio-js.js"></script>
+</body>
+</html>

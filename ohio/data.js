@@ -1,25 +1,69 @@
-// 遊戲關卡與設定資料
-const gameConfig = {
-    stage1: {
-        name: "第 1 關：尋找鑰匙",
-        objective: "任務：點擊沙發/桌子/鞋子尋找鑰匙，避開家人並前往右側大門！",
-        familySpeed: { dad: 3, mom: -4, dog: 5 }
+// 🎮 遊戲關卡完整資料庫
+const GameStages = {
+    currentStageIndex: 1, // 預設從第 1 關開始
+    
+    stages: {
+        1: {
+            id: 1,
+            name: "第 1 關：尋找鑰匙",
+            bgGradient: "linear-gradient(#221100, #4d2600)",
+            objective: "任務：避開家人搜查，尋找大門鑰匙並成功逃脫！",
+            playerHp: 100,
+            enemyType: "family",
+            config: {
+                dadSpeed: 3,
+                momSpeed: -4,
+                keySpawnPoint: "sofa"
+            }
+        },
+        2: {
+            id: 2,
+            name: "第 2 關：公路逃亡",
+            bgGradient: "linear-gradient(#001122, #002b4d)",
+            objective: "任務：躲避高速來向的大卡車，存活並持續前進！",
+            playerHp: 120,
+            enemyType: "trucks",
+            config: {
+                spawnInterval: 60,
+                truckSpeed: 7
+            }
+        },
+        3: {
+            id: 3,
+            name: "第 3 關：決戰黑心老闆",
+            bgGradient: "linear-gradient(#110022, #2d004d)",
+            objective: "任務：踩踏地面生成的炸彈(💣)，鎖定轟炸黑心老闆！",
+            playerHp: 150,
+            bossHp: 1200,
+            enemyType: "boss",
+            config: {
+                bossAttackRate: 100,
+                bombDamage: 120
+            }
+        }
     },
-    stage2: {
-        name: "第 2 關：公路逃亡",
-        objective: "任務：躲避來向的大卡車，存活並前進！",
-        spawnRate: 60,
-        truckSpeed: 6
+
+    // 取得當前關卡資料
+    getCurrentStage: function() {
+        return this.stages[this.currentStageIndex];
     },
-    stage3: {
-        name: "第 3 關：決戰黑心老闆",
-        bossHp: 1200,
-        bossAttackRate: 120,
-        objective: "任務：踩地上生成的炸彈(💣)即可全自動鎖定轟炸！"
+
+    // 推進至下一關
+    nextStage: function() {
+        if (this.stages[this.currentStageIndex + 1]) {
+            this.currentStageIndex++;
+            return true;
+        }
+        return false; // 已通關最後一關
+    },
+
+    // 重設回第一關
+    reset: function() {
+        this.currentStageIndex = 1;
     }
 };
 
-// 排行榜工具（使用瀏覽器 localStorage）
+// 🏆 排行榜模組 (localStorage)
 const LeaderboardData = {
     storageKey: 'ohio2_local_leaderboard',
 
@@ -45,19 +89,11 @@ const LeaderboardData = {
     }
 };
 
-// Google 登入驗證模組
+// 🔑 Google 登入驗證模組
 const GoogleAuthModule = {
-    currentUser: {
-        isLoggedIn: false,
-        name: "匿名巨鴨",
-        email: "",
-        picture: ""
-    },
-    
-    // 請填入你的 Google Client ID (從 Google Cloud Console 取得)
+    currentUser: { isLoggedIn: false, name: "匿名巨鴨" },
     clientId: "25456804335-lcpbgbludrs2pq25h20pa8dusoabos3s.apps.googleusercontent.com",
 
-    // 初始化 Google Sign-In SDK
     init: function(statusElementId, buttonElementId, onSuccessCallback) {
         if (typeof google === 'undefined') {
             setTimeout(() => this.init(statusElementId, buttonElementId, onSuccessCallback), 200);
@@ -77,38 +113,29 @@ const GoogleAuthModule = {
         );
     },
 
-    // 解析 JWT Token 回傳使用者資料
     handleCredentialResponse: function(response, statusElementId, buttonElementId, onSuccessCallback) {
         try {
             const tokenParts = response.credential.split('.');
             const cleanPayload = tokenParts[1].replace(/-/g, '+').replace(/_/g, '/');
-            const payload = JSON.parse(
-                decodeURIComponent(window.atob(cleanPayload).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
-            );
+            const payload = JSON.parse(decodeURIComponent(window.atob(cleanPayload).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
 
             this.currentUser.isLoggedIn = true;
             this.currentUser.name = payload.name || "Google玩家";
-            this.currentUser.email = payload.email || "";
-            this.currentUser.picture = payload.picture || "";
 
             const statusEl = document.getElementById(statusElementId);
             const btnEl = document.getElementById(buttonElementId);
-            
             if (statusEl) {
                 statusEl.innerHTML = `🟢 驗證成功：<b>${this.currentUser.name}</b>`;
                 statusEl.style.color = "#00ffcc";
             }
             if (btnEl) btnEl.style.display = 'none';
 
-            if (typeof onSuccessCallback === 'function') {
-                onSuccessCallback(this.currentUser);
-            }
+            if (typeof onSuccessCallback === 'function') onSuccessCallback(this.currentUser);
         } catch (err) {
-            console.error("Google Token 解析失敗:", err);
+            console.error("Google 驗證失敗:", err);
         }
     },
 
-    // 取得當前玩家名稱
     getPlayerName: function() {
         return this.currentUser.name;
     }

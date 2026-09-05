@@ -103,6 +103,7 @@
         const pEl=document.getElementById('player'), shieldEff=document.getElementById('shield-effect'), stageEl=document.getElementById('game-stage'), pHpBar=document.getElementById('player-hp-bar'), pHpText=document.getElementById('player-hp-text'), bHpBar=document.getElementById('boss-hp-bar'), bHpText=document.getElementById('boss-hp-text'), cdShieldEl=document.getElementById('cd-shield'), objText=document.getElementById('objective-text'), timerDisplay=document.getElementById('timer-display'), overlay=document.getElementById('game-overlay'), overlayTitle=document.getElementById('overlay-title'), overlayDesc=document.getElementById('overlay-desc'), overlayBtn=document.getElementById('game-overlay-btn'), leaderboardArea=document.getElementById('leaderboard-area'), leaderboardList=document.getElementById('leaderboard-list');
         const localBGM=new Audio('./boss_musin.mp3'); localBGM.loop=true; localBGM.volume=0.25;
 
+        // 預設關卡設定，避免抓不到 JSON 檔時崩潰
         const defaultStageConfig = {
             stage1: { name: "第 1 關：客廳秘境", objective: "尋找房間內的鑰匙以開啟大門！", familySpeed: { dad: 3, mom: -4, dog: 5 } },
             stage2: { name: "第 2 關：公路逃亡", objective: "躲避卡車衝撞！", spawnRate: 60, truckSpeed: 8 },
@@ -137,13 +138,14 @@
         async function loadGameStageSettings() {
             let url='./ohio-json.json';
             try {
-                const res=await fetch(url); 
+                const res=await fetch(url);
                 stageConfigData=await res.json();
-            } catch(e) { 
+            } catch(e) {
+                // Fetch 失敗時退回預設設定
                 stageConfigData = defaultStageConfig;
             }
             document.getElementById('current-stage-text').textContent="第 1 關";
-            showOverlay("Ohio 2 💣 炸彈外掛版","[W/A/S/D]移動與跳躍，[R]防禦。\n第3關黑心老闆【固定在右側不准動】，踩地上的炸彈（💣）將發射自動追蹤導彈投擲！","開戰！");
+            showOverlay("Ohio 2 💣 炸彈外掛版","[W/A/S/D]移動與跳躍，[R]防禦。\n第3關黑心老闆不移動，踩地上的炸彈（💣）將全自動追蹤投擲轟炸！","開戰！");
         }
 
         function detect() {
@@ -152,7 +154,7 @@
         }
 
         window.addEventListener('load',()=>{detect(); loadGameStageSettings(); initGoogleAuth();});
-        
+
         overlayBtn.addEventListener('click',()=>{
             overlay.style.display='none'; 
             leaderboardArea.style.display='none'; 
@@ -242,7 +244,7 @@
             const c=stageConfigData.stage3; 
             bossHp=c.bossHp; 
             document.getElementById('current-stage-text').textContent=c.name; 
-            objText.textContent="任務：黑心老闆已被禁錮在右側無法移動！踩地上的炸彈(💣)即可全自動鎖定轟炸！"; 
+            objText.textContent="任務：黑心老闆已被固定在右側！踩地上生成的炸彈(💣)即可全自動鎖定轟炸！"; 
             document.getElementById('stage1-elements').style.display='none'; 
             document.getElementById('stage2-elements').style.display='none'; 
             document.getElementById('stage3-elements').style.display='block'; 
@@ -435,7 +437,7 @@
                 if(a&&a.trim()!=="")n=a;
             } 
             JL.save(n,totalElapsedSeconds); 
-            showOverlay("🏆 勞動節大勝利！",`總共耗時：${totalElapsedSeconds.toFixed(1)}秒！`,"再玩一次"); 
+            showOverlay("🏆 勞動節大勝利！", `總共耗時：${totalElapsedSeconds.toFixed(1)}秒！`, "再玩一次"); 
             JL.render(); 
             leaderboardArea.style.display='block';
         }

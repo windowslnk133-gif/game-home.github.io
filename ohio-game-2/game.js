@@ -116,12 +116,12 @@ function triggerShield() {
     setTimeout(() => {
         isShieldActive = false;
         shieldEff.style.display = 'none';
-    }, 500);
+    }, 4000);
 
     setTimeout(() => {
         isShieldReady = true;
         if (isPlayingG) cdShieldEl.innerHTML = `神聖防禦 [R]: <span style="color:#00ffcc">準備就緒</span>`;
-    }, 2000);
+    }, 3000);
 }
 
 function triggerAttack() {

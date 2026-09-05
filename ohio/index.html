@@ -2,80 +2,210 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ohio 2 - 整合 Google 登入純前端版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ohio 2 - 手機適應與虛擬按鍵版</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
         body { background: #050014; color: #fff; font-family: monospace; overflow: hidden; display: flex; flex-direction: column; align-items: center; height: 100vh; user-select: none; }
-        #google-auth-box { width: 100vw; background: rgba(0,0,0,0.85); padding: 8px; display: flex; justify-content: center; align-items: center; gap: 15px; border-bottom: 2px solid #ffcc00; z-index: 200; }
-        #google-user-status { color: #ff3333; font-size: 12px; font-weight: bold; }
-        #hud { margin-top: 10px; text-align: center; background: rgba(0,0,0,0.85); padding: 10px; border: 2px solid #ffcc00; border-radius: 8px; width: 95vw; max-width: 900px; }
-        #game-stage { width: 95vw; height: 60vh; position: relative; margin-top: 10px; background: linear-gradient(#110022,#2d004d); border: 4px solid #ffcc00; overflow: hidden; }
-        #ground { position: absolute; bottom: 0; width: 100%; height: 40px; background: #222; border-top: 4px solid #ffcc00; }
-        #player { position: absolute; bottom: 40px; left: 50px; font-size: 42px; }
-        #boss { position: absolute; bottom: 40px; right: 40px; font-size: 95px; }
-        #leaderboard-area { margin: 10px 0; background: rgba(0,0,0,0.6); border: 1px dashed #ffcc00; padding: 10px; border-radius: 5px; width: 85%; }
-        #leaderboard-list { padding-left: 20px; color: #00ffcc; font-size: 13px; text-align: left; }
-        #game-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10,0,20,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
+        
+        /* 頂部列 */
+        #google-auth-box { width: 100vw; background: rgba(0,0,0,0.85); padding: 6px; display: flex; justify-content: center; align-items: center; gap: 10px; border-bottom: 2px solid #ffcc00; z-index: 200; font-size: 12px; }
+        #hud { margin-top: 6px; text-align: center; background: rgba(0,0,0,0.85); padding: 8px; border: 2px solid #ffcc00; border-radius: 8px; width: 95vw; max-width: 900px; }
+        .bar-container { display: flex; gap: 10px; margin-top: 5px; }
+        .bar-wrapper { flex: 1; position: relative; height: 16px; background: #222; border: 1px solid #fff; border-radius: 3px; overflow: hidden; }
+        #player-hp-bar { width: 100%; height: 100%; background: #00ffcc; transition: width 0.1s; }
+        #boss-hp-bar { width: 100%; height: 100%; background: #ff0055; transition: width 0.05s; }
+        .bar-text { position: absolute; width: 100%; text-align: center; font-size: 10px; line-height: 16px; font-weight: bold; text-shadow: 1px 1px 2px #000; }
+        
+        /* 遊戲主舞台 (RWD 自適應) */
+        #game-stage { width: 95vw; max-width: 900px; height: 45vh; min-height: 220px; position: relative; margin-top: 6px; border: 3px solid #ffcc00; overflow: hidden; transition: background 0.5s; border-radius: 6px; }
+        #ground { position: absolute; bottom: 0; width: 100%; height: 35px; background: #222; border-top: 3px solid #ffcc00; }
+        #player { position: absolute; bottom: 35px; left: 30px; font-size: 36px; transition: transform 0.1s; }
+        #boss { position: absolute; bottom: 35px; right: 30px; font-size: 80px; display: none; }
+
+        /* 📱 手機虛擬按鈕區塊 */
+        #virtual-controls { width: 95vw; max-width: 900px; display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-bottom: 12px; z-index: 150; }
+        .d-pad, .action-pad { display: flex; gap: 10px; align-items: center; }
+        .btn-ctrl { width: 55px; height: 55px; background: rgba(255, 204, 0, 0.2); border: 2px solid #ffcc00; color: #ffcc00; font-size: 18px; font-weight: bold; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.5); active-bg: #ffcc00; }
+        .btn-ctrl:active, .btn-ctrl.active { background: #ffcc00; color: #000; transform: scale(0.92); }
+        .btn-wide { width: 75px; border-radius: 25px; font-size: 14px; }
+        .btn-def { border-color: #00ffcc; color: #00ffcc; }
+        .btn-def:active, .btn-def.active { background: #00ffcc; color: #000; }
+        .btn-atk { border-color: #ff0055; color: #ff0055; }
+        .btn-atk:active, .btn-atk.active { background: #ff0055; color: #fff; }
+
+        /* 通關彈窗 */
+        #game-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10,0,20,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 300; }
+        #leaderboard-area { margin: 10px 0; background: rgba(0,0,0,0.6); border: 1px dashed #ffcc00; padding: 8px; border-radius: 5px; width: 85%; max-width: 400px; }
+        #leaderboard-list { padding-left: 20px; color: #00ffcc; font-size: 12px; text-align: left; }
         button { padding: 8px 16px; background: #ffcc00; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; }
+
+        /* 手機橫螢幕最佳化 */
+        @media (max-height: 500px) {
+            #game-stage { height: 55vh; }
+            #virtual-controls { padding-bottom: 4px; }
+            .btn-ctrl { width: 45px; height: 45px; font-size: 14px; }
+            .btn-wide { width: 60px; }
+        }
     </style>
-    <!-- 引入 Google 登入官方 SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <!-- Google 登入狀態列 -->
+
     <div id="google-auth-box">
-        <span id="google-user-status">[未登入] 綁定 Google 帳號登錄排行榜</span>
+        <span id="google-user-status">[未登入] 綁定 Google 帳號</span>
         <div id="google-login-btn"></div>
     </div>
 
     <div id="hud">
-        <div class="hud-title"><span id="current-stage-text">載入關卡中...</span></div>
-        <div id="status-row" style="margin-top: 5px; font-size: 12px; color: #aaa;">
-            <span>耗時: <span id="timer-display">0.0</span> 秒</span>
+        <div class="hud-title"><h4 id="current-stage-text">載入關卡中...</h4></div>
+        <div class="bar-container">
+            <div class="bar-wrapper"><div id="player-hp-bar"></div><div class="bar-text" id="player-hp-text">100 / 100</div></div>
+            <div class="bar-wrapper" id="boss-hud" style="display: none;"><div id="boss-hp-bar"></div><div class="bar-text" id="boss-hp-text">1200 / 1200</div></div>
+        </div>
+        <div id="status-row" style="margin-top: 4px; font-size: 11px; color: #aaa; display: flex; justify-content: space-between;">
+            <span>⏱️ 耗時: <span id="timer-display">0.0</span> 秒</span>
             <span id="objective-text">載入中...</span>
         </div>
     </div>
 
+    <!-- 遊戲主要運算舞台 -->
     <div id="game-stage">
         <div id="ground"></div>
         <div id="player">🦆</div>
-        <div id="stage3-elements">
-            <div id="boss">👨‍💼</div>
+        <div id="boss">👨‍💼</div>
+    </div>
+
+    <!-- 🎮 虛擬按鍵控制區（支援手機觸控與鍵盤連動） -->
+    <div id="virtual-controls">
+        <div class="d-pad">
+            <div class="btn-ctrl" id="btn-a">A</div>
+            <div class="btn-ctrl" id="btn-d">D</div>
+            <div class="btn-ctrl btn-wide" id="btn-space">空白鍵</div>
+        </div>
+        <div class="action-pad">
+            <div class="btn-ctrl btn-def" id="btn-def">防禦</div>
+            <div class="btn-ctrl btn-atk" id="btn-atk">攻擊</div>
         </div>
     </div>
 
+    <!-- 全螢幕遮罩/選單 -->
     <div id="game-overlay">
-        <h2 id="overlay-title">Ohio 2 純靜態網頁版</h2>
-        <p id="overlay-desc" style="font-size: 14px; margin: 10px 0; color: #ddd;">讀取 data.js 設定中...</p>
+        <h2 id="overlay-title">準備開戰！</h2>
+        <p id="overlay-desc" style="font-size: 13px; margin: 8px 0; color: #ddd; text-align: center; max-width: 80%;"></p>
         <div id="leaderboard-area">
-            <h4>🏆 最速巨鴨排行榜 (Local)</h4>
+            <h4>🏆 最速巨鴨排行榜</h4>
             <ol id="leaderboard-list"></ol>
         </div>
-        <button id="game-overlay-btn">開戰！</button>
+        <button id="game-overlay-btn">開始關卡</button>
     </div>
 
-    <!-- 先引入 data.js 檔案 -->
     <script src="./data.js"></script>
 
     <script>
         let gameStartTime = 0, totalElapsedSeconds = 0, isPlaying = false;
+        
+        // 玩家狀態
+        const playerState = {
+            x: 30,
+            y: 0,
+            velocityY: 0,
+            isGrounded: true,
+            isDefending: false,
+            hp: 100,
+            maxHp: 100
+        };
 
-        // 初始化 Google 登入（元件 ID 與成功後的回呼）
+        const keys = { a: false, d: false, space: false, def: false, atk: false };
+
         window.addEventListener('load', () => {
-            GoogleAuthModule.init('google-user-status', 'google-login-btn', (user) => {
-                console.log("登入成功，玩家為:", user.name);
-            });
+            GoogleAuthModule.init('google-user-status', 'google-login-btn');
             renderLeaderboard();
-            document.getElementById('overlay-desc').textContent = gameConfig.stage3.objective;
+            loadStageUI();
+            setupControls();
+            autoFitMobile();
         });
 
-        // 渲染排行榜
+        // 螢幕大小自動偵測與調整
+        window.addEventListener('resize', autoFitMobile);
+        function autoFitMobile() {
+            const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window);
+            if (isMobile) {
+                console.log("📱 偵測到流動裝置，啟用虛擬按鈕強化模式");
+            }
+        }
+
+        // 綁定虛擬按鈕與實體鍵盤事件
+        function setupControls() {
+            const bindBtn = (id, keyName) => {
+                const el = document.getElementById(id);
+                const start = (e) => { e.preventDefault(); keys[keyName] = true; el.classList.add('active'); };
+                const end = (e) => { e.preventDefault(); keys[keyName] = false; el.classList.remove('active'); };
+                
+                el.addEventListener('touchstart', start);
+                el.addEventListener('touchend', end);
+                el.addEventListener('mousedown', start);
+                el.addEventListener('mouseup', end);
+            };
+
+            bindBtn('btn-a', 'a');
+            bindBtn('btn-d', 'd');
+            bindBtn('btn-space', 'space');
+            bindBtn('btn-def', 'def');
+            bindBtn('btn-atk', 'atk');
+
+            // 實體鍵盤支援
+            window.addEventListener('keydown', (e) => {
+                const k = e.key.toLowerCase();
+                if (k === 'a') keys.a = true;
+                if (k === 'd') keys.d = true;
+                if (k === ' ') keys.space = true;
+                if (k === 'j' || k === 'k') keys.atk = true;
+                if (k === 'l' || k === 'shift') keys.def = true;
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const k = e.key.toLowerCase();
+                if (k === 'a') keys.a = false;
+                if (k === 'd') keys.d = false;
+                if (k === ' ') keys.space = false;
+                if (k === 'j' || k === 'k') keys.atk = false;
+                if (k === 'l' || k === 'shift') keys.def = false;
+            });
+        }
+
+        function loadStageUI() {
+            const stage = GameStages.getCurrentStage();
+            document.getElementById('current-stage-text').textContent = stage.name;
+            document.getElementById('objective-text').textContent = stage.objective;
+            document.getElementById('game-stage').style.background = stage.bgGradient;
+            
+            playerState.hp = stage.playerHp;
+            playerState.maxHp = stage.playerHp;
+            updateHpBar();
+
+            if (stage.enemyType === 'boss') {
+                document.getElementById('boss-hud').style.display = 'block';
+                document.getElementById('boss').style.display = 'block';
+            } else {
+                document.getElementById('boss-hud').style.display = 'none';
+                document.getElementById('boss').style.display = 'none';
+            }
+
+            document.getElementById('overlay-title').textContent = stage.name;
+            document.getElementById('overlay-desc').textContent = stage.objective;
+        }
+
+        function updateHpBar() {
+            const pct = Math.max(0, (playerState.hp / playerState.maxHp) * 100);
+            document.getElementById('player-hp-bar').style.width = pct + '%';
+            document.getElementById('player-hp-text').textContent = `${Math.ceil(playerState.hp)} / ${playerState.maxHp}`;
+        }
+
         function renderLeaderboard() {
             const listEl = document.getElementById('leaderboard-list');
             listEl.innerHTML = '';
-            const scores = LeaderboardData.get();
-            scores.forEach((item) => {
+            LeaderboardData.get().forEach((item) => {
                 const li = document.createElement('li');
                 li.innerHTML = `<b>${item.name}</b> <span style="float:right;">⏱️ ${item.time} 秒</span>`;
                 listEl.appendChild(li);
@@ -85,32 +215,56 @@
         document.getElementById('game-overlay-btn').onclick = () => {
             document.getElementById('game-overlay').style.display = 'none';
             isPlaying = true;
-            gameStartTime = performance.now();
+            if (GameStages.currentStageIndex === 1) gameStartTime = performance.now();
             gameLoop();
         };
 
+        // 🎮 主遊戲邏輯迴圈
         function gameLoop() {
-            if(!isPlaying) return;
+            if (!isPlaying) return;
+
+            // 時間計算
             totalElapsedSeconds = (performance.now() - gameStartTime) / 1000;
             document.getElementById('timer-display').textContent = totalElapsedSeconds.toFixed(1);
-            requestAnimationFrame(gameLoop);
-        }
 
-        // 遊戲勝利時，直接從 data.js 讀取 Google 玩家名稱或彈窗輸入
-        function gameWin() {
-            isPlaying = false;
-            let playerName = GoogleAuthModule.getPlayerName();
-            
-            if (!GoogleAuthModule.currentUser.isLoggedIn) {
-                const inputName = prompt("🎉 挑戰成功！未登入 Google，請輸入暱稱登錄排行榜：", "未登入巨鴨");
-                if (inputName && inputName.trim() !== "") playerName = inputName;
+            // A / D 移動
+            const stageWidth = document.getElementById('game-stage').clientWidth;
+            if (keys.a && playerState.x > 10) playerState.x -= 4;
+            if (keys.d && playerState.x < stageWidth - 50) playerState.x += 4;
+
+            // 空白鍵跳躍
+            if (keys.space && playerState.isGrounded) {
+                playerState.velocityY = 12;
+                playerState.isGrounded = false;
             }
 
-            LeaderboardData.add(playerName, totalElapsedSeconds);
-            renderLeaderboard();
-            document.getElementById('overlay-title').textContent = "🏆 通關成功！";
-            document.getElementById('overlay-desc').textContent = `玩家：${playerName} | 耗時：${totalElapsedSeconds.toFixed(1)} 秒`;
-            document.getElementById('game-overlay').style.display = 'flex';
+            // 重力運算
+            if (!playerState.isGrounded) {
+                playerState.y += playerState.velocityY;
+                playerState.velocityY -= 0.6; // 重力加速度
+                if (playerState.y <= 0) {
+                    playerState.y = 0;
+                    playerState.isGrounded = true;
+                }
+            }
+
+            // 防禦姿態與攻擊視覺效果
+            const playerEl = document.getElementById('player');
+            playerState.isDefending = keys.def;
+            
+            if (playerState.isDefending) {
+                playerEl.style.filter = "brightness(1.5) drop-shadow(0 0 5px #00ffcc)";
+            } else if (keys.atk) {
+                playerEl.style.filter = "drop-shadow(0 0 8px #ff0055)";
+            } else {
+                playerEl.style.filter = "none";
+            }
+
+            // 更新玩家角色位置
+            playerEl.style.left = playerState.x + 'px';
+            playerEl.style.bottom = (35 + playerState.y) + 'px';
+
+            requestAnimationFrame(gameLoop);
         }
     </script>
 </body>

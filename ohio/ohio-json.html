@@ -84,7 +84,7 @@
             <h4>🏆 最速巨鴨榜 (JSON)</h4>
             <ol id="leaderboard-list"></ol>
         </div>
-        <button id="game-overlay-btn" style="margin-top:10px;">開戰！</button>
+        <button id="game-overlay-btn" style="margin-top:10px; padding: 8px 16px; font-weight: bold; cursor: pointer;">開戰！</button>
     </div>
     <div id="mobile-controls">
         <div style="display:flex; gap:10px;"><div class="mobile-btn" id="mb-left">A</div><div class="mobile-btn" id="mb-right">D</div></div>
@@ -107,20 +107,23 @@
             flash:(el)=>{el.style.opacity='0.3'; setTimeout(()=>el.style.opacity='1',150);}
         };
 
+        const defaultStageConfig = {
+            stage1: { name: "第 1 關：客廳秘境", objective: "尋找房間內的鑰匙以開啟大門！", familySpeed: { dad: 3, mom: -4, dog: 5 } },
+            stage2: { name: "第 2 關：公路逃亡", objective: "躲避卡車衝撞！", spawnRate: 60, truckSpeed: 8 },
+            stage3: { name: "第 3 關：決戰 Boss", objective: "擊敗老闆！", bossHp: 1200, bossAttackRate: 90 }
+        };
+
         function initGoogleAuth() {
             if(typeof google==='undefined'){setTimeout(initGoogleAuth,200); return;}
             google.accounts.id.initialize({
-                // 🟢 修正：完美填入你專屬的 Google 用戶端識別碼，格式百分百正確
-                client_id: "25456804335-lcpbgbludrs2pq25h20pa8dusoabos3s.apps.googleusercontent.com", 
+                client_id: "YOUR_CLIENT_ID.apps.googleusercontent.com", 
                 callback: r=>{
                     try {
-                        // 🟢 完全正確的 JWT 解碼黑科技：精確取出 index 1 的 Payload 再取代與解密
                         const tokenParts = r.credential.split('.');
                         const cleanPayload = tokenParts[1].replace(/-/g,'+').replace(/_/g,'/');
                         const p=JSON.parse(decodeURIComponent(window.atob(cleanPayload).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join('')));
-                        
-                        googlePlayerName=p.name; 
-                        document.getElementById('google-user-status').innerHTML=`🟢 驗證成功：${googlePlayerName}`; 
+                        googlePlayerName=p.name;
+                        document.getElementById('google-user-status').innerHTML=`🟢 驗證成功：${googlePlayerName}`;
                         document.getElementById('google-login-btn').style.display='none';
                     } catch(err) {
                         console.error("解碼失敗:", err);
@@ -130,350 +133,319 @@
             google.accounts.id.renderButton(document.getElementById("google-login-btn"),{theme:"dark",size:"medium",shape:"pill"});
         }
 
-
         async function loadGameStageSettings() {
-            // 預設關卡配置 (若無外部 JSON 檔案則提供預設值)
-            stageConfigData = {
-                stage1: { name: "第 1 關：客廳逃脫", objective: "尋找鑰匙並開門", familySpeed: { dad: 3, mom: -4, dog: 5 } },
-                stage2: { name: "第 2 關：公路狂飆", objective: "躲避卡車前進", spawnRate: 60, truckSpeed: 6 },
-                stage3: { name: "第 3 關：老闆決戰", objective: "擊敗惡霸老闆", bossHp: 1200, bossAttackRate: 120 }
-            };
-
-            let url = './ohio-json.json';
+            let url='./ohio-json.json'; 
             try {
-                const res = await fetch(url);
-                if (res.ok) stageConfigData = await res.json();
+                const res=await fetch(url); 
+                stageConfigData=await res.json();
             } catch(e) { 
-                console.warn("無法載入遠端配置，改用預設配置。");
+                stageConfigData = defaultStageConfig; 
             }
-            document.getElementById('current-stage-text').textContent = stageConfigData.stage1.name;
-            showOverlay("Ohio 2 完全體", "[W/A/S/D]移動/跳躍，[R]防禦，[E]攻擊。\nT+3可直接跳關。請先登入Google以記錄排行！", "開戰！");
+            document.getElementById('current-stage-text').textContent="第 1 關";
+            showOverlay("Ohio 2 完全體","[W/A/S/D]移動/跳躍，[R]防禦，[E]攻擊。\nT+3可直接跳關。請先登入Google以記錄排行！","開戰！");
         }
 
         function detect() {
-            const isM = /Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth <= 768;
-            const p = document.getElementById('mobile-controls');
-            if (isM && p) { 
-                p.style.display = 'flex'; 
-                moveSpeed = 4; 
-                document.getElementById('mb-left').ontouchstart = () => { keys.a = true; }; 
-                document.getElementById('mb-left').ontouchend = () => { keys.a = false; }; 
-                document.getElementById('mb-right').ontouchstart = () => { keys.d = true; }; 
-                document.getElementById('mb-right').ontouchend = () => { keys.d = false; }; 
-                document.getElementById('mb-attack').ontouchstart = e => { e.preventDefault(); if(isPlayingG) triggerAttack(); }; 
-                stageEl.ontouchstart = e => { 
-                    if(e.touches[0].clientY < window.innerHeight * 0.5) { 
-                        keys.w = true; 
-                        setTimeout(() => keys.w = false, 100); 
-                    }
-                }; 
+            const isM=/Android|iPhone|iPad/i.test(navigator.userAgent)||window.innerWidth<=768, p=document.getElementById('mobile-controls');
+            if(isM&&p){ 
+                p.style.display='flex'; 
+                moveSpeed=4; 
+                document.getElementById('mb-left').ontouchstart=()=>{keys.a=true;}; 
+                document.getElementById('mb-left').ontouchend=()=>{keys.a=false;}; 
+                document.getElementById('mb-right').ontouchstart=()=>{keys.d=true;}; 
+                document.getElementById('mb-right').ontouchend=()=>{keys.d=false;}; 
+                document.getElementById('mb-attack').ontouchstart=e=>{e.preventDefault(); if(isPlayingG)triggerAttack();}; 
+                stageEl.ontouchstart=e=>{if(e.touches[0].clientY<window.innerHeight*0.5){keys.w=true; setTimeout(()=>keys.w=false,100);}}; 
             }
         }
 
-        window.addEventListener('load', () => { detect(); loadGameStageSettings(); initGoogleAuth(); });
-
-        overlayBtn.addEventListener('click', () => {
-            overlay.style.display = 'none'; 
-            leaderboardArea.style.display = 'none'; 
-            if (playerHp <= 0 || currentStage > 3) {
-                currentStage = 1; 
-                playerHp = 120; 
+        window.addEventListener('load',()=>{detect(); loadGameStageSettings(); initGoogleAuth();});
+        
+        overlayBtn.addEventListener('click',()=>{
+            overlay.style.display='none'; 
+            leaderboardArea.style.display='none'; 
+            if(playerHp<=0||currentStage>3){
+                currentStage=1; 
+                playerHp=120; 
                 setupStage1(); 
-                gameStartTime = performance.now(); 
-                totalElapsedSeconds = 0;
-            } else {
-                gameStartTime = performance.now();
+                gameStartTime=performance.now(); 
+                totalElapsedSeconds=0;
+            } else if (currentStage === 1) {
                 setupStage1();
+                gameStartTime=performance.now();
             }
-            isPlayingG = true; 
+            isPlayingG=true; 
             GameTools.playMusic(); 
             gameLoop();
         });
 
-        window.addEventListener('keydown', e => { 
-            if(e.key==='a'||e.key==='ArrowLeft') keys.a=true; 
-            if(e.key==='d'||e.key==='ArrowRight') keys.d=true; 
-            if(e.key==='w'||e.key==='ArrowUp') keys.w=true; 
-            if(e.code==='Space'){ keys.space=true; e.preventDefault(); } 
-            if(e.key==='t') keys.t=true; 
-            if(keys.t && e.key==='3') { if(isPlayingG && currentStage!==3) setupStage3(); } 
-            if(e.key==='r') triggerShield(); 
-            if(e.key==='e') triggerAttack();
+        window.addEventListener('keydown',e=>{ 
+            if(e.key==='a'||e.key==='A'||e.key==='ArrowLeft')keys.a=true; 
+            if(e.key==='d'||e.key==='D'||e.key==='ArrowRight')keys.d=true; 
+            if(e.key==='w'||e.key==='W'||e.key==='ArrowUp')keys.w=true; 
+            if(e.key==='s'||e.key==='S'||e.key==='ArrowDown')keys.s=true; 
+            if(e.code==='Space'){keys.space=true; e.preventDefault();} 
+            if(e.key==='t'||e.key==='T')keys.t=true; 
+            if(keys.t&&(e.key==='3')) {if(isPlayingG&&currentStage!==3)setupStage3();} 
+            if(e.key==='r'||e.key==='R')triggerShield(); 
+            if(e.key==='e'||e.key==='E')triggerAttack();
         });
 
-        window.addEventListener('keyup', e => { 
-            if(e.key==='a'||e.key==='ArrowLeft') keys.a=false; 
-            if(e.key==='d'||e.key==='ArrowRight') keys.d=false; 
-            if(e.key==='w'||e.key==='ArrowUp') keys.w=false; 
-            if(e.code==='Space') keys.space=false; 
-            if(e.key==='t') keys.t=false;
+        window.addEventListener('keyup',e=>{ 
+            if(e.key==='a'||e.key==='A'||e.key==='ArrowLeft')keys.a=false; 
+            if(e.key==='d'||e.key==='D'||e.key==='ArrowRight')keys.d=false; 
+            if(e.key==='w'||e.key==='W'||e.key==='ArrowUp')keys.w=false; 
+            if(e.key==='s'||e.key==='S'||e.key==='ArrowDown')keys.s=false; 
+            if(e.code==='Space')keys.space=false; 
+            if(e.key==='t'||e.key==='T')keys.t=false;
         });
 
-        function setupStage1() { 
-            currentStage = 1; playerX = 50; playerY = 0; hasKey = false; 
-            const c = stageConfigData.stage1; 
-            document.getElementById('current-stage-text').textContent = c.name; 
-            objText.textContent = c.objective; 
-            familyVel = { ...c.familySpeed }; 
-            document.getElementById('stage1-elements').style.display = 'block'; 
-            document.getElementById('stage2-elements').style.display = 'none'; 
-            document.getElementById('stage3-elements').style.display = 'none'; 
-            document.getElementById('boss-hud').style.display = 'none'; 
-            
-            if (window.innerWidth <= 768) {
-                document.getElementById('sofa').style.left = '60px'; 
-                document.getElementById('table').style.left = '140px'; 
-                document.getElementById('shoes').style.left = '220px';
+        function setupStage1(){ 
+            currentStage=1; playerX=50; playerY=0; hasKey=false; 
+            const c=stageConfigData.stage1; 
+            document.getElementById('current-stage-text').textContent=c.name; 
+            objText.textContent=c.objective; 
+            familyVel={...c.familySpeed}; 
+            document.getElementById('stage1-elements').style.display='block'; 
+            document.getElementById('stage2-elements').style.display='none'; 
+            document.getElementById('stage3-elements').style.display='none'; 
+            document.getElementById('boss-hud').style.display='none'; 
+            if(window.innerWidth<=768){
+                document.getElementById('sofa').style.left='60px'; 
+                document.getElementById('table').style.left='140px'; 
+                document.getElementById('shoes').style.left='220px';
             } 
-            keyLocation = ["沙發", "桌子", "鞋子"][Math.floor(Math.random() * 3)]; 
-            
-            document.querySelectorAll('.solid-obj').forEach(item => { 
-                if(item.id==='sofa') item.textContent='🛋️'; 
-                if(item.id==='table') item.textContent='🪑'; 
-                if(item.id==='shoes') item.textContent='👞'; 
-                item.onclick = () => {
-                    if(currentStage!==1 || !isPlayingG) return; 
-                    if(Math.abs(pEl.getBoundingClientRect().left - item.getBoundingClientRect().left) < 100) {
-                        const n = item.getAttribute('data-name'); 
-                        if(n === keyLocation) {
-                            hasKey = true; 
-                            item.textContent = '🔑'; 
-                            objText.textContent = "🔑拿到鑰匙！快去右邊門(🚪)！";
-                        } else {
-                            objText.textContent = `調查了${n}，空的...`;
+            keyLocation=["沙發","桌子","鞋子"][Math.floor(Math.random()*3)]; 
+            document.querySelectorAll('.solid-obj').forEach(item=>{ 
+                if(item.id==='sofa')item.textContent='🛋️'; 
+                if(item.id==='table')item.textContent='🪑'; 
+                if(item.id==='shoes')item.textContent='👞'; 
+                item.onclick=()=>{
+                    if(currentStage!==1||!isPlayingG)return; 
+                    if(Math.abs(pEl.getBoundingClientRect().left-item.getBoundingClientRect().left)<100){
+                        const n=item.getAttribute('data-name'); 
+                        if(n===keyLocation){
+                            hasKey=true; 
+                            item.textContent='❌'; 
+                            objText.textContent="🔑拿到鑰匙！快去右邊門(🚪)！";
+                        }else{
+                            objText.textContent=`調查了${n}，空的...`;
                         }
                     }
                 };
             });
         }
 
-        function setupStage2() { 
-            currentStage = 2; playerX = 50; playerY = 0; stage2Progress = 0; truckTimer = 0; 
-            const c = stageConfigData.stage2; 
-            document.getElementById('current-stage-text').textContent = c.name; 
-            objText.textContent = c.objective; 
-            document.getElementById('stage1-elements').style.display = 'none'; 
-            document.getElementById('stage2-elements').style.display = 'block'; 
-            document.getElementById('stage3-elements').style.display = 'none'; 
-            document.getElementById('stage2-elements').innerHTML = '';
+        function setupStage2(){ 
+            currentStage=2; playerX=50; playerY=0; stage2Progress=0; truckTimer=0; 
+            const c=stageConfigData.stage2; 
+            document.getElementById('current-stage-text').textContent=c.name; 
+            objText.textContent=c.objective; 
+            document.getElementById('stage1-elements').style.display='none'; 
+            document.getElementById('stage2-elements').style.display='block'; 
+            document.getElementById('stage2-elements').innerHTML='';
         }
 
-        function setupStage3() { 
-            currentStage = 3; playerX = 100; playerY = 0; bossActionTimer = 0; 
-            const c = stageConfigData.stage3; 
-            bossHp = c.bossHp; 
-            document.getElementById('current-stage-text').textContent = c.name; 
-            objText.textContent = c.objective; 
-            document.getElementById('stage1-elements').style.display = 'none'; 
-            document.getElementById('stage2-elements').style.display = 'none'; 
-            document.getElementById('stage3-elements').style.display = 'block'; 
-            document.getElementById('boss-hud').style.display = 'block'; 
-            document.getElementById('computer-indicator').style.display = 'none'; 
-            document.getElementById('computer-boss').style.display = 'none'; 
-            const b = document.getElementById('boss'); 
-            b.style.transform = 'scale(1)'; 
-            b.style.left = ''; 
+        function setupStage3(){ 
+            currentStage=3; playerX=100; playerY=0; bossActionTimer=0; 
+            const c=stageConfigData.stage3; 
+            bossHp=c.bossHp; 
+            document.getElementById('current-stage-text').textContent=c.name; 
+            objText.textContent=c.objective; 
+            document.getElementById('stage1-elements').style.display='none'; 
+            document.getElementById('stage2-elements').style.display='none'; 
+            document.getElementById('stage3-elements').style.display='block'; 
+            document.getElementById('boss-hud').style.display='block'; 
+            document.getElementById('computer-indicator').style.display='none'; 
+            document.getElementById('computer-boss').style.display='none'; 
+            const b=document.getElementById('boss'); 
+            b.style.transform='scale(1)'; 
+            b.style.left=''; 
             updateHpUI();
         }
 
-        function triggerShield() {
-            if(!isShieldReady || !isPlayingG) return; 
-            isShieldReady = false; 
-            isShieldActive = true; 
-            shieldEff.style.display = 'block'; 
-            cdShieldEl.innerHTML = `防禦[R]: <span style="color:#ff3333">CD</span>`; 
-            setTimeout(() => { isShieldActive = false; shieldEff.style.display = 'none'; }, 500); 
-            setTimeout(() => { isShieldReady = true; if(isPlayingG) cdShieldEl.innerHTML = `防禦[R]: <span style="color:#00ffcc">就緒</span>`; }, 2000);
+        function triggerShield(){
+            if(!isShieldReady||!isPlayingG)return; 
+            isShieldReady=false; isShieldActive=true; 
+            shieldEff.style.display='block'; 
+            cdShieldEl.innerHTML=`防禦[R]: <span style="color:#ff3333">CD</span>`; 
+            setTimeout(()=>{isShieldActive=false; shieldEff.style.display='none';},500); 
+            setTimeout(()=>{isShieldReady=true; if(isPlayingG)cdShieldEl.innerHTML=`防禦[R]: <span style="color:#00ffcc">就緒</span>`;},2000);
         }
 
-        function triggerAttack() {
-            if(currentStage !== 3 || !isPlayingG) return; 
-            const pR = pEl.getBoundingClientRect(), bR = document.getElementById('boss').getBoundingClientRect(); 
-            if(pR.right >= bR.left - 50 && pR.left <= bR.right + 50) {
-                bossHp = Math.max(0, bossHp - 15); 
+        function triggerAttack(){
+            if(currentStage!==3||!isPlayingG)return; 
+            const pR=pEl.getBoundingClientRect(), bR=document.getElementById('boss').getBoundingClientRect(); 
+            if(pR.right>=bR.left-50&&pR.left<=bR.right+50){
+                bossHp=Math.max(0,bossHp-15); 
                 updateHpUI(); 
-                GameTools.spawnMoney(bR.left - stageEl.getBoundingClientRect().left + 40, 150); 
-                const b = document.getElementById('boss'); 
-                b.style.transform = 'scale(0.9) translateX(10px)'; 
-                setTimeout(() => b.style.transform = 'scale(1)', 100); 
-                if(bossHp <= 0) gameWin();
+                GameTools.spawnMoney(bR.left-stageEl.getBoundingClientRect().left+40,150); 
+                const b=document.getElementById('boss'); 
+                b.style.transform='scale(0.9) translateX(10px)'; 
+                setTimeout(()=>b.style.transform='scale(1)',100); 
+                if(bossHp<=0)gameWin();
             }
         }
 
         function gameLoop() {
-            if(!isPlayingG) return; 
-            totalElapsedSeconds = (performance.now() - gameStartTime) / 1000; 
-            timerDisplay.textContent = totalElapsedSeconds.toFixed(1);
-            
-            let nX = playerX; 
-            if(keys.a) nX -= moveSpeed; 
-            if(keys.d) nX += moveSpeed; 
-            if(nX < 0) nX = 0; 
-            if(nX > stageEl.clientWidth - 50) nX = stageEl.clientWidth - 50;
+            if(!isPlayingG)return; 
+            totalElapsedSeconds=(performance.now()-gameStartTime)/1000; 
+            timerDisplay.textContent=totalElapsedSeconds.toFixed(1);
 
-            let isB = false; 
-            if(currentStage === 1) {
-                pEl.style.left = nX + 'px'; 
-                document.querySelectorAll('.solid-block').forEach(b => { if(GameTools.checkCollision(pEl, b)) isB = true; });
+            let nX=playerX; 
+            if(keys.a)nX-=moveSpeed; 
+            if(keys.d)nX+=moveSpeed; 
+            if(nX<0)nX=0; 
+            if(nX>stageEl.clientWidth-50)nX=stageEl.clientWidth-50;
+
+            let isB=false; 
+            if(currentStage===1){
+                pEl.style.left=nX+'px'; 
+                document.querySelectorAll('.solid-block').forEach(b=>{if(GameTools.checkCollision(pEl,b))isB=true;});
             } 
-            if(!isB) playerX = nX;
+            if(!isB)playerX=nX;
 
-            if((keys.w || keys.space) && isGrounded) { playerVy = jumpForce; isGrounded = false; } 
+            if((keys.w||keys.space)&&isGrounded){playerVy=jumpForce; isGrounded=false;} 
             playerVy -= gravity; 
-            playerY += playerVy; 
-            if(playerY <= 0) { playerY = 0; playerVy = 0; isGrounded = true; }
+            playerY+=playerVy; 
+            if(playerY<=0){playerY=0; playerVy=0; isGrounded=true;}
 
-            pEl.style.left = playerX + 'px'; 
-            pEl.style.bottom = (40 + playerY) + 'px';
+            pEl.style.left=playerX+'px'; 
+            pEl.style.bottom=(40+playerY)+'px';
 
-// ================= 核心關卡判斷代碼區塊 =================
-
-if (currentStage === 1) {
-    // 1. 家人往復移動與碰撞 (第 1 關)
-    m('member-dad', 'dad', 200, stageEl.clientWidth * 0.45);
-    m('member-mom', 'mom', stageEl.clientWidth * 0.4, stageEl.clientWidth * 0.7);
-    m('member-dog', 'dog', stageEl.clientWidth * 0.65, stageEl.clientWidth * 0.9);
-    
-    document.querySelectorAll('.family-member').forEach(m => {
-        if (GameTools.checkCollision(pEl, m)) takeDamage(15); 
-    });
-    
-    // 判定拿到鑰匙並走到最右邊門口
-    if (hasKey && playerX >= stageEl.clientWidth - 90) setupStage2();
-
-} else if (currentStage === 2) {
-    // 2. 公路進度更新與卡車生成 (第 2 關)
-    stage2Progress += 0.2;
-    objText.textContent = `公路逃亡進度: ${Math.floor(stage2Progress)}%`;
-    if (stage2Progress >= 100) setupStage3();
-
-    truckTimer++;
-    if (truckTimer % stageConfigData.stage2.spawnRate === 0) {
-        const t = document.createElement('div');
-        t.className = 'truck'; t.textContent = '🚚';
-        t.style.left = stageEl.clientWidth + 'px';
-        document.getElementById('stage2-elements').appendChild(t);
-    }
-    
-    document.querySelectorAll('.truck').forEach(t => {
-        let tx = parseFloat(t.style.left) - stageConfigData.stage2.truckSpeed;
-        t.style.left = tx + 'px';
-        if (GameTools.checkCollision(pEl, t)) { takeDamage(25); t.remove(); }
-        if (tx < -80) t.remove();
-    });
-
-} else if (currentStage === 3) {
-    // 3. Boss 行為計時器與技能施放 (第 3 關)
-    bossActionTimer++;
-    if (bossActionTimer >= stageConfigData.stage3.bossAttackRate) {
-        bossActionTimer = 0;
-        Math.random() > 0.5 ? dash() : slam();
-    }
-    if (GameTools.checkCollision(pEl, document.getElementById('boss'))) takeDamage(10);
-}
-
+            if(currentStage===1){ 
+                m('member-dad','dad',200,stageEl.clientWidth*0.45); 
+                m('member-mom','mom',stageEl.clientWidth*0.4,stageEl.clientWidth*0.7); 
+                m('member-dog','dog',stageEl.clientWidth*0.65,stageEl.clientWidth*0.9); 
+                document.querySelectorAll('.family-member').forEach(mEl=>{if(GameTools.checkCollision(pEl,mEl))takeDamage(15);}); 
+                if(hasKey&&playerX>=stageEl.clientWidth-90)setupStage2(); 
+            }
+            else if(currentStage===2){ 
+                stage2Progress+=0.2; 
+                objText.textContent=`公路逃亡進度: ${Math.floor(stage2Progress)}%`; 
+                if(stage2Progress>=100)setupStage3(); 
+                truckTimer++; 
+                if(truckTimer%stageConfigData.stage2.spawnRate===0){
+                    const t=document.createElement('div'); 
+                    t.className='truck'; 
+                    t.textContent='🚚'; 
+                    t.style.left=stageEl.clientWidth+'px'; 
+                    document.getElementById('stage2-elements').appendChild(t);
+                } 
+                document.querySelectorAll('.truck').forEach(t => { 
+                    let tx=parseFloat(t.style.left)-stageConfigData.stage2.truckSpeed; 
+                    t.style.left=tx+'px'; 
+                    if(GameTools.checkCollision(pEl,t)){takeDamage(25); t.remove();} 
+                    if(tx<-80)t.remove(); 
+                }); 
+            }
+            else if(currentStage===3){ 
+                bossActionTimer++; 
+                if(bossActionTimer>=stageConfigData.stage3.bossAttackRate){
+                    bossActionTimer=0; 
+                    Math.random()>0.5?dash():slam();
+                } 
+                if(GameTools.checkCollision(pEl,document.getElementById('boss')))takeDamage(10);
+            }
 
             updateHpUI(); 
-            animationId = requestAnimationFrame(gameLoop);
+            animationId=requestAnimationFrame(gameLoop);
         }
 
-        function m(id, key, minX, maxX) {
-            const el = document.getElementById(id); 
-            if(!el) return; 
-            let x = (parseFloat(el.style.left) || minX) + familyVel[key]; 
-            if(x <= minX || x >= maxX) familyVel[key] = -familyVel[key]; 
-            el.style.left = x + 'px';
+        function m(id,key,minX,maxX){
+            const el=document.getElementById(id); 
+            if(!el)return; 
+            let x=(parseFloat(el.style.left)||minX)+familyVel[key]; 
+            if(x<=minX||x>=maxX)familyVel[key]=-familyVel[key]; 
+            el.style.left=x+'px';
         }
 
-        function dash() {
-            const rX = Math.random() * (stageEl.clientWidth - 200) + 50;
-            const b = document.getElementById('boss'); 
-            b.style.left = rX + 'px'; 
-            b.style.transform = 'scale(1.2) rotate(15deg)'; 
-            setTimeout(() => b.style.transform = 'scale(1) rotate(0deg)', 300);
+        function dash(){
+            const rX=Math.random()*(stageEl.clientWidth-200)+50, b=document.getElementById('boss'); 
+            b.style.left=rX+'px'; 
+            b.style.transform='scale(1.2) rotate(15deg)'; 
+            setTimeout(()=>b.style.transform='scale(1) rotate(0deg)',300);
         }
 
-        function slam() {
-            const ind = document.getElementById('computer-indicator');
-            const comp = document.getElementById('computer-boss');
-            const tX = playerX; 
-            ind.style.left = (tX - 25) + 'px'; 
-            ind.style.width = '100px'; 
-            ind.style.display = 'block'; 
-            setTimeout(() => {
-                ind.style.display = 'none'; 
-                if(!isPlayingG) return; 
-                comp.style.left = (tX - 10) + 'px'; 
-                comp.style.display = 'block'; 
-                if(Math.abs(playerX - tX) < 60 && playerY < 50) takeDamage(40); 
-                setTimeout(() => comp.style.display = 'none', 800);
-            }, 1200);
+        function slam(){
+            const ind=document.getElementById('computer-indicator'), comp=document.getElementById('computer-boss'), tX=playerX; 
+            ind.style.left=(tX-25)+'px'; 
+            ind.style.width='100px'; 
+            ind.style.display='block'; 
+            setTimeout(()=>{
+                ind.style.display='none'; 
+                if(!isPlayingG)return; 
+                comp.style.left=(tX-10)+'px'; 
+                comp.style.display='block'; 
+                if(Math.abs(playerX-tX)<60&&playerY<50)takeDamage(40); 
+                setTimeout(()=>comp.style.display='none',800);
+            },1200);
         }
 
-        function takeDamage(a) {
-            if(isShieldActive) return; 
-            playerHp = Math.max(0, playerHp - a); 
+        function takeDamage(a){
+            if(isShieldActive)return; 
+            playerHp=Math.max(0,playerHp-a); 
             GameTools.flash(pEl); 
-            if(playerHp <= 0) gameOver();
+            if(playerHp<=0)gameOver();
         }
 
-        function updateHpUI() {
-            pHpBar.style.width = (playerHp / 120) * 100 + '%'; 
-            pHpText.textContent = Math.floor(playerHp) + ' / 120'; 
-            bHpBar.style.width = (bossHp / 1200) * 100 + '%'; 
-            bHpText.textContent = Math.floor(bossHp) + ' / 1200';
+        function updateHpUI(){
+            pHpBar.style.width=(playerHp/120)*100+'%'; 
+            pHpText.textContent=Math.floor(playerHp)+' / 120'; 
+            bHpBar.style.width=(bossHp/1200)*100+'%'; 
+            bHpText.textContent=Math.floor(bossHp)+' / 1200';
         }
 
-        const JL = {
-            get: () => { const d = localStorage.getItem('o2_j'); return d ? JSON.parse(d) : []; },
-            save: (n, s) => { 
-                let l = JL.get(); 
-                l.push({ n: n, t: parseFloat(s.toFixed(1)) }); 
-                l.sort((a, b) => a.t - b.t); 
-                l = l.slice(0, 5); 
-                localStorage.setItem('o2_j', JSON.stringify(l)); 
+        const JL={
+            get:()=>{const d=localStorage.getItem('o2_j'); return d?JSON.parse(d):[];},
+            save:(n,s)=>{
+                let l=JL.get(); 
+                l.push({n:n,t:parseFloat(s.toFixed(1))}); 
+                l.sort((a,b)=>a.t-b.t); 
+                l=l.slice(0,5); 
+                localStorage.setItem('o2_j',JSON.stringify(l));
             },
-            render: () => { 
-                leaderboardList.innerHTML = ''; 
-                const l = JL.get(); 
-                if(l.length === 0) { leaderboardList.innerHTML = '暫無紀錄'; return; } 
-                l.forEach((entry, i) => {
-                    const li = document.createElement('li'); 
-                    li.innerHTML = `${i+1}. <b>${entry.n}</b> <span style="float:right;">⏱️ ${entry.t}秒</span>`; 
+            render:()=>{
+                leaderboardList.innerHTML=''; 
+                const l=JL.get(); 
+                if(l.length===0){leaderboardList.innerHTML='暫無紀錄';return;} 
+                l.forEach((entry,i)=>{
+                    const li=document.createElement('li'); 
+                    li.innerHTML=`${i+1}. <b>${entry.n}</b> <span style="float:right;">⏱️ ${entry.t}秒</span>`; 
                     leaderboardList.appendChild(li);
                 });
             }
         };
 
-        function gameOver() {
-            isPlayingG = false; 
+        function gameOver(){
+            isPlayingG=false; 
             cancelAnimationFrame(animationId); 
             GameTools.stopMusic(); 
-            showOverlay("💀 巨鴨慘遭逮捕", "你變成了美味烤鴨...", "重來"); 
+            showOverlay("💀 巨鴨慘遭逮捕","你變成了美味烤鴨...","重來"); 
             JL.render(); 
-            leaderboardArea.style.display = 'block';
+            leaderboardArea.style.display='block';
         }
 
-        function gameWin() {
-            isPlayingG = false; 
+        function gameWin(){
+            isPlayingG=false; 
             cancelAnimationFrame(animationId); 
             GameTools.stopMusic(); 
-            let n = googlePlayerName; 
-            if(n === "匿名巨鴨") {
-                const a = prompt("🎉 逆襲成功！輸入大名：", "未登入巨鴨"); 
-                if(a && a.trim() !== "") n = a;
+            let n=googlePlayerName; 
+            if(n==="匿名巨鴨"){
+                const a=prompt("🎉 逆襲成功！輸入大名：","未登入巨鴨"); 
+                if(a&&a.trim()!=="")n=a;
             } 
-            JL.save(n, totalElapsedSeconds); 
-            showOverlay("🏆 勞動節大勝利！", `總共耗時：${totalElapsedSeconds.toFixed(1)}秒！`, "再玩一次"); 
+            JL.save(n,totalElapsedSeconds); 
+            showOverlay("🏆 勞動節大勝利！",`總共耗時：${totalElapsedSeconds.toFixed(1)}秒！`,"再玩一次"); 
             JL.render(); 
-            leaderboardArea.style.display = 'block';
+            leaderboardArea.style.display='block';
         }
 
-        function showOverlay(t, d, b) {
-            overlayTitle.textContent = t; 
-            overlayDesc.textContent = d; 
-            overlayBtn.textContent = b; 
-            overlay.style.display = 'flex';
+        function showOverlay(t,d,b){
+            overlayTitle.textContent=t; 
+            overlayDesc.textContent=d; 
+            overlayBtn.textContent=b; 
+            overlay.style.display='flex';
         }
     </script>
 </body>

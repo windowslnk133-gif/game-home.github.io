@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>巨鴨逆襲：戰鬥舞台</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="hud">
+        <div class="hud-title">當前關卡: <span id="current-stage-text">第 1 關 - 逃離異變之家</span></div>
+        <div class="bar-container">
+            <div class="bar-wrapper">
+                <span>巨鴨血量 (HP)</span>
+                <div class="bar-bg">
+                    <div id="player-hp-bar"></div>
+                    <div class="bar-text" id="player-hp-text">120 / 120</div>
+                </div>
+            </div>
+            <div class="bar-wrapper" id="boss-hud" style="display: none;">
+                <span>ACE公司黑心老闆 (BOSS HP)</span>
+                <div class="bar-bg">
+                    <div id="boss-hp-bar"></div>
+                    <div class="bar-text" id="boss-hp-text">1200 / 1200</div>
+                </div>
+            </div>
+        </div>
+        <div id="status-row">
+            <span id="cd-shield">神聖防禦 [R]: <span style="color:#00ffcc">準備就緒</span></span>
+            <span id="objective-text">任務：調查沙發、桌子、鞋子找出大門鑰匙！</span>
+        </div>
+    </div>
+
+    <div id="game-stage">
+        <!-- 提示與招式公告 -->
+        <div id="announcement">STAGE 1</div>
+        <div id="ground"></div>
+
+        <!-- 玩家（巨鴨） -->
+        <div id="player">🦆<div id="shield-effect">🛡️</div></div>
+
+        <!-- 第 1 關：異變之家物件 -->
+        <div id="stage1-elements">
+            <!-- 可調查物件（沙發、桌子、鞋子） -->
+            <div class="solid-obj" id="sofa" data-name="沙發" style="left: 250px; bottom: 40px;">🛋️</div>
+            <div class="solid-obj" id="table" data-name="桌子" style="left: 500px; bottom: 40px;">🪑</div>
+            <div class="solid-obj" id="shoes" data-name="鞋子" style="left: 750px; bottom: 40px;">👞</div>
+            
+            <!-- 固體障礙物（水、蜘蛛、iPhone） -->
+            <div class="solid-block" style="left: 180px; bottom: 40px;">💧</div>
+            <div class="solid-block" style="left: 420px; bottom: 40px;">🕷️</div>
+            <div class="solid-block" style="left: 680px; bottom: 40px;">📱</div>
+
+            <!-- 隨機移動移動的家人 -->
+            <div class="family-member" id="member-dad" style="left: 350px;">👨</div>
+            <div class="family-member" id="member-mom" style="left: 600px;">👩</div>
+            <div class="family-member" id="member-dog" style="left: 850px;">🐶</div>
+
+            <!-- 終點大門 -->
+            <div id="home-door" style="position: absolute; right: 20px; bottom: 40px; font-size: 50px;">🚪</div>
+        </div>
+
+        <!-- 第 2 關：生死公路公路（動態生成卡車） -->
+        <div id="stage2-elements" style="display: none;"></div>
+
+        <!-- 第 3 關：大鬧 ACE 公司 -->
+        <div id="stage3-elements" style="display: none;">
+            <div id="boss">👨‍💼</div>
+            <div id="computer-indicator"></div>
+            <div id="computer-boss" style="display: none; position: absolute; bottom: 40px; font-size: 70px; z-index: 5;">🖥️</div>
+        </div>
+    </div>
+
+    <!-- 蓋台彈窗 -->
+    <div id="game-overlay" style="display: none;">
+        <h2 id="overlay-title">標題</h2>
+        <p id="overlay-desc">描述</p>
+        <button id="game-overlay-btn" id="overlay-btn">按鈕</button>
+    </div>
+
+    <!-- 隱藏的 YouTube Iframe 播放器（只保留給手雷音效，BGM已改成本地載入） -->
+    <div id="yt-players" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;">
+        <div id="sfx-player"></div>
+    </div>
+    <script src="https://youtube.com"></script>
+
+    <!-- 💡 傳統網頁有序加載：確保後面的大腦能讀取前面的工具 -->
+    <script src="tool.js"></script>
+    <script src="boss.js"></script>
+    <script src="game1.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

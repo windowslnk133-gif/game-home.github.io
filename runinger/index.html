@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>極速跑酷：霓虹衝刺</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+        }
+
+        body {
+            background-color: #020617;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background: #f43f5e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .game-tips {
+            margin-bottom: 15px;
+            color: #38bdf8;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        canvas {
+            border: 3px solid #f43f5e;
+            background: #0f172a;
+            box-shadow: 0 0 25px rgba(244, 63, 94, 0.4);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 返回首頁按鈕 -->
+    <a href="home.html" class="back-btn">← 返回大廳</a>
+
+    <div class="game-tips">按下 [空白鍵] / [↑] 跳躍 | [點擊畫面] 跳躍</div>
+    <canvas id="runnerCanvas" width="800" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById('runnerCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let runner = { x: 80, y: 280, width: 40, height: 60, dy: 0, gravity: 0.8, jumpPower: -14, isGrounded: false };
+        let obstacles = [];
+        let score = 0;
+        let gameSpeed = 6;
+        let gameAnimationId;
+        let isGameOver = false;
+
+        function init() {
+            window.addEventListener('keydown', handleKeyPress);
+            canvas.addEventListener('touchstart', jump);
+            canvas.addEventListener('mousedown', jump);
+            gameLoop();
+        }
+
+        function resetGame() {
+            runner.y = 280;
+            runner.dy = 0;
+            obstacles = [];
+            score = 0;
+            gameSpeed = 6;
+            isGameOver = false;
+        }
+
+        function jump() {
+            if (runner.isGrounded && !isGameOver) {
+                runner.dy = runner.jumpPower;
+                runner.isGrounded = false;
+            } else if (isGameOver) {
+                resetGame();
+                gameLoop();
+            }
+        }
+
+        function handleKeyPress(e) {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                jump();
+            }
+        }
+
+        function spawnObstacle() {
+            if (Math.random() < 0.02 && (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 250)) {
+                let height = Math.floor(Math.random() * 30) + 30;
+                obstacles.push({ x: canvas.width, y: 340 - height, width: 25, height: height });
+            }
+        }
+
+        function gameLoop() {
+            if (isGameOver) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 地面
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(0, 340, canvas.width, 60);
+
+            // 角色物理
+            runner.dy += runner.gravity;
+            runner.y += runner.dy;
+
+            if (runner.y >= 280) {
+                runner.y = 280;
+                runner.dy = 0;
+                runner.isGrounded = true;
+            }
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.fillRect(runner.x, runner.y, runner.width, runner.height);
+
+            // 障礙物
+            spawnObstacle();
+            ctx.fillStyle = '#38bdf8';
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x -= gameSpeed;
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+
+                if (
+                    runner.x < obs.x + obs.width &&
+                    runner.x + runner.width > obs.x &&
+                    runner.y < obs.y + obs.height &&
+                    runner.y + runner.height > obs.y
+                ) {
+                    gameOver();
+                    return;
+                }
+
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                    score += 10;
+                    if (score % 50 === 0) gameSpeed += 0.5;
+                }
+            }
+
+            // 得分
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '20px sans-serif';
+            ctx.fillText(`分數: ${score}`, 20, 40);
+
+            gameAnimationId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            isGameOver = true;
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#f43f5e';
+            ctx.font = 'bold 36px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER!', canvas.width / 2, 180);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '20px sans-serif';
+            ctx.fillText(`最終得分: ${score}`, canvas.width / 2, 230);
+            ctx.fillText('點擊畫面或按 [跳躍鍵] 重新開始', canvas.width / 2, 280);
+            ctx.textAlign = 'left';
+        }
+
+        init();
+    </script>
+</body>
+</html>

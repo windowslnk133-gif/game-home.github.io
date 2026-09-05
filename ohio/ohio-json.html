@@ -120,7 +120,7 @@
         function initGoogleAuth() {
             if(typeof google==='undefined'){setTimeout(initGoogleAuth,200); return;}
             google.accounts.id.initialize({
-                client_id: "googleusercontent.com",
+                client_id: "25456804335-lcpbgbludrs2pq25h20pa8dusoabos3s.apps.googleusercontent.com",
                 callback: r=>{
                     try {
                         const tokenParts = r.credential.split('.');

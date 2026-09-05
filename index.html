@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遊戲首頁 - 選擇遊戲</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+        }
+
+        body {
+            background-color: #0d1117;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            color: #58a6ff;
+            margin-bottom: 30px;
+        }
+
+        /* 展示區 Container */
+        .gallery-container {
+            max-width: 1200px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        /* 超連結包裹卡片 */
+        .game-link {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        /* 遊戲卡片樣式 */
+        .game-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .game-card:hover {
+            transform: translateY(-8px);
+            border-color: #58a6ff;
+            box-shadow: 0 8px 20px rgba(88, 166, 255, 0.2);
+        }
+
+        /* 圖片 <img> */
+        .game-card img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* 內容區塊 */
+        .card-body {
+            padding: 20px;
+        }
+
+        .game-title {
+            font-size: 1.25rem;
+            color: #f0f6fc;
+            margin-bottom: 8px;
+        }
+
+        .game-desc {
+            font-size: 0.9rem;
+            color: #8b949e;
+            margin-bottom: 20px;
+        }
+
+        /* 按鈕視覺化樣式 */
+        .enter-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            text-align: center;
+            background: #238636;
+            color: #ffffff;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background 0.2s ease;
+        }
+
+        .game-card:hover .enter-btn {
+            background: #2ea043;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎮 遊戲選單展區</h1>
+
+    <div class="gallery-container">
+
+        <!-- 遊戲 1 (使用 <a> 包裹) -->
+        <a href="./ohio-game-2/index.html" class="game-link">
+            <div class="game-card">
+                <img src="https://picsum.photos/400/250?random=1" alt="藍天冒險">
+                <div class="card-body">
+                    <h2 class="game-title">藍天冒險</h2>
+                    <p class="game-desc">點擊進入奇幻冒險世界。</p>
+                    <div class="enter-btn">▶ 進入遊戲</div>
+                </div>
+            </div>
+        </a>
+
+        <!-- 遊戲 2 (使用 <a> 包裹) -->
+        <a href="./ohio-game-1/index.html" class="game-link">
+            <div class="game-card">
+                <img src="./game2.png" alt="Only in Ohio 1：終焉決戰">
+                <div class="card-body">
+                    <h2 class="game-title">Only in Ohio 1：終焉決戰</h2>
+                    <p class="game-desc">點擊進入這個震撼的冒險世界。</p>
+                    <div class="enter-btn">▶ 進入遊戲</div>
+                </div>
+            </div>
+        </a>
+
+    </div>
+
+</body>
+</html>

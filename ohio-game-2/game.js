@@ -111,17 +111,17 @@ function triggerShield() {
     isShieldReady = false;
     isShieldActive = true;
     shieldEff.style.display = 'block';
-    cdShieldEl.innerHTML = `神聖防禦 [R]: <span style="color:#ff3333">CD中</span>`;
+    cdShieldEl.innerHTML = 神聖防禦 [R]: <span style="color:#ff3333">CD中</span>`;
 
     setTimeout(() => {
         isShieldActive = false;
         shieldEff.style.display = 'none';
-    }, 4000);
+    }, 400);
 
     setTimeout(() => {
         isShieldReady = true;
         if (isPlayingG) cdShieldEl.innerHTML = `神聖防禦 [R]: <span style="color:#00ffcc">準備就緒</span>`;
-    }, 3000);
+    }, 30000);
 }
 
 function triggerAttack() {

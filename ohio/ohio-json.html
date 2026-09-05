@@ -316,40 +316,52 @@
             pEl.style.left = playerX + 'px'; 
             pEl.style.bottom = (40 + playerY) + 'px';
 
-            if(currentStage === 1) { 
-                m('member-dad', 'dad', 200, stageEl.clientWidth * 0.45); 
-                m('member-mom', 'mom', stageEl.clientWidth * 0.4, stageEl.clientWidth * 0.7); 
-                m('member-dog', 'dog', stageEl.clientWidth * 0.65, stageEl.clientWidth * 0.9); 
-                document.querySelectorAll('.family-member').forEach(m => { if(GameTools.checkCollision(pEl, m)) takeDamage(15); }); 
-                if(hasKey && playerX >= stageEl.clientWidth - 90) setupStage2(); 
-            }
-            else if(currentStage === 2) { 
-                stage2Progress += 0.2; 
-                objText.textContent = `公路逃亡進度: ${Math.floor(stage2Progress)}%`; 
-                if(stage2Progress >= 100) setupStage3(); 
-                truckTimer++; 
-                if(truckTimer % stageConfigData.stage2.spawnRate === 0) {
-                    const t = document.createElement('div'); 
-                    t.className = 'truck'; 
-                    t.textContent = '🚚'; 
-                    t.style.left = stageEl.clientWidth + 'px'; 
-                    document.getElementById('stage2-elements').appendChild(t);
-                } 
-                document.querySelectorAll('.truck').forEach(t => {
-                    let tx = parseFloat(t.style.left) - stageConfigData.stage2.truckSpeed; 
-                    t.style.left = tx + 'px'; 
-                    if(GameTools.checkCollision(pEl, t)) { takeDamage(25); t.remove(); } 
-                    if(tx < -80) t.remove();
-                });
-            }
-            else if(currentStage === 3) { 
-                bossActionTimer++; 
-                if(bossActionTimer >= stageConfigData.stage3.bossAttackRate) {
-                    bossActionTimer = 0; 
-                    Math.random() > 0.5 ? dash() : slam();
-                } 
-                if(GameTools.checkCollision(pEl, document.getElementById('boss'))) takeDamage(10);
-            }
+// ================= 核心關卡判斷代碼區塊 =================
+
+if (currentStage === 1) {
+    // 1. 家人往復移動與碰撞 (第 1 關)
+    m('member-dad', 'dad', 200, stageEl.clientWidth * 0.45);
+    m('member-mom', 'mom', stageEl.clientWidth * 0.4, stageEl.clientWidth * 0.7);
+    m('member-dog', 'dog', stageEl.clientWidth * 0.65, stageEl.clientWidth * 0.9);
+    
+    document.querySelectorAll('.family-member').forEach(m => {
+        if (GameTools.checkCollision(pEl, m)) takeDamage(15); 
+    });
+    
+    // 判定拿到鑰匙並走到最右邊門口
+    if (hasKey && playerX >= stageEl.clientWidth - 90) setupStage2();
+
+} else if (currentStage === 2) {
+    // 2. 公路進度更新與卡車生成 (第 2 關)
+    stage2Progress += 0.2;
+    objText.textContent = `公路逃亡進度: ${Math.floor(stage2Progress)}%`;
+    if (stage2Progress >= 100) setupStage3();
+
+    truckTimer++;
+    if (truckTimer % stageConfigData.stage2.spawnRate === 0) {
+        const t = document.createElement('div');
+        t.className = 'truck'; t.textContent = '🚚';
+        t.style.left = stageEl.clientWidth + 'px';
+        document.getElementById('stage2-elements').appendChild(t);
+    }
+    
+    document.querySelectorAll('.truck').forEach(t => {
+        let tx = parseFloat(t.style.left) - stageConfigData.stage2.truckSpeed;
+        t.style.left = tx + 'px';
+        if (GameTools.checkCollision(pEl, t)) { takeDamage(25); t.remove(); }
+        if (tx < -80) t.remove();
+    });
+
+} else if (currentStage === 3) {
+    // 3. Boss 行為計時器與技能施放 (第 3 關)
+    bossActionTimer++;
+    if (bossActionTimer >= stageConfigData.stage3.bossAttackRate) {
+        bossActionTimer = 0;
+        Math.random() > 0.5 ? dash() : slam();
+    }
+    if (GameTools.checkCollision(pEl, document.getElementById('boss'))) takeDamage(10);
+}
+
 
             updateHpUI(); 
             animationId = requestAnimationFrame(gameLoop);

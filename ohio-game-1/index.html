@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>俄亥俄鍵盤俠 vs 23100HP突變巨鴨（不壞分開版）</title>
+    <!-- 引入樣式表 -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="hud">
+        <h1>ONLY IN OHIO：終焉決戰</h1>
+        <div class="bar-container">
+            <div class="bar-wrapper">
+                <span>玩家血量 (HP)</span>
+                <div class="bar-bg">
+                    <div id="player-hp-bar"></div>
+                    <div class="bar-text" id="player-hp-text">100 / 100</div>
+                </div>
+            </div>
+            <div class="bar-wrapper">
+                <span>俄亥俄暴君鴨 (BOSS HP)</span>
+                <div class="bar-bg">
+                    <div id="boss-hp-bar"></div>
+                    <div class="bar-text" id="boss-hp-text">23100 / 23100</div>
+                </div>
+            </div>
+        </div>
+        <div id="skill-cd-bar">副武器 [E] 神聖手雷：<span id="cd-text">準備就緒</span></div>
+    </div>
+
+    <div id="game-stage">
+        <div id="skill-announcement">BOSS 技能</div>
+        <div id="ground"></div>
+        
+        <div id="spike-indicator" class="indicator"></div>
+        <div id="slam-indicator" class="indicator"></div>
+        <div id="meteor-indicator" class="indicator"></div>
+
+        <div id="spike-effect" class="skill-effect">🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵</div>
+        <div id="meteor-effect" class="skill-effect">☄️</div>
+
+        <div id="player">👨<div id="weapon">⌨️</div></div>
+        <div id="boss">🦆</div>
+    </div>
+
+    <div id="overlay">
+        <h2 id="overlay-title">決戰俄亥俄之巔</h2>
+        <p id="overlay-desc">
+            控制：[A] 左移 | [D] 右移 | [空白鍵] 跳躍<br>
+            副武器：[E] 投擲神聖手雷彈 (-1000HP，CD 8秒)！<br>
+            戰術：靠近巨鴨自動近戰敲擊！注意閃避地刺、重壓與 888 傷害隕石！
+        </p>
+        <button id="start-btn">拿起鍵盤開戰</button>
+    </div>
+
+
+    <div id="yt-players" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;">
+        <div id="sfx-player"></div>
+    </div>
+
+    <!-- 載入官方 YouTube API -->
+    <script src="https://youtube.com"></script>
+
+    <!-- 順序保持不變 -->
+    <script src="tool.js"></script>
+    <script src="boss.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
+

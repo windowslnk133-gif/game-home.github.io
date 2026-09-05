@@ -1,0 +1,102 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background-color: #050014; color: #fff;
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden; display: flex; flex-direction: column; align-items: center;
+    height: 100vh; user-select: none;
+}
+
+/* 頂部數據面板 */
+#hud {
+    margin-top: 15px; text-align: center; z-index: 10;
+    background: rgba(0, 0, 0, 0.85); padding: 12px 25px;
+    border: 2px solid #ffcc00; border-radius: 10px;
+    width: 95vw; max-width: 800px;
+}
+h1 { color: #ffcc00; font-size: 20px; text-shadow: 0 0 10px #ffcc00; }
+.bar-container { display: flex; gap: 20px; margin-top: 8px; }
+.bar-wrapper { flex: 1; text-align: left; font-size: 13px; }
+.bar-bg { width: 100%; height: 18px; background-color: #222; border: 1px solid #fff; margin-top: 3px; border-radius: 3px; overflow: hidden; position: relative; }
+#player-hp-bar { width: 100%; height: 100%; background-color: #ff2a2a; transition: width 0.1s; }
+#boss-hp-bar { width: 100%; height: 100%; background-color: #ffcc00; transition: width 0.05s; }
+.bar-text { position: absolute; width: 100%; text-align: center; top: 0; left: 0; font-size: 12px; line-height: 16px; font-weight: bold; color: #fff; text-shadow: 1px 1px 2px #000; }
+#skill-cd-bar { margin-top: 5px; font-size: 12px; color: #00ffcc; font-weight: bold; text-shadow: 0 0 5px #00ffcc; }
+
+/* 遊戲主舞台 */
+#game-stage {
+    width: 95vw; height: 65vh; position: relative; margin-top: 15px;
+    background: linear-gradient(to bottom, #0a0026, #1a0033);
+    border: 4px solid #ffcc00; overflow: hidden;
+}
+#ground {
+    position: absolute; bottom: 0; left: 0; width: 100%; height: 40px;
+    background-color: #222; border-top: 4px solid #ffcc00; z-index: 3;
+}
+
+/* 玩家 (鍵盤俠) */
+#player {
+    position: absolute; bottom: 40px; left: 100px;
+    width: 50px; height: 60px; font-size: 40px;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 5; transition: bottom 0.05s ease-out;
+}
+#weapon {
+    position: absolute; right: -25px; top: 10px; font-size: 24px;
+    transform-origin: bottom left; transition: transform 0.05s;
+}
+.attacking #weapon { animation: swing 0.1s infinite alternate; }
+@keyframes swing { 0% { transform: rotate(0deg); } 100% { transform: rotate(-45deg); } }
+
+/* 鴨子 BOSS */
+#boss {
+    position: absolute; bottom: 40px; right: 40px;
+    width: 180px; height: 180px; font-size: 130px;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 4; transition: transform 0.2s, bottom 0.2s;
+}
+
+/* 預警紅光指示器 */
+.indicator {
+    position: absolute; background-color: rgba(255, 0, 0, 0.4);
+    border: 2px dashed #ff0000; display: none; z-index: 2;
+    animation: pulse 0.2s infinite alternate;
+}
+@keyframes pulse { 0% { opacity: 0.4; } 100% { opacity: 0.8; } }
+.skill-effect { position: absolute; display: none; z-index: 6; justify-content: center; align-items: center; }
+#spike-effect { font-size: 40px; }
+#meteor-effect { font-size: 60px; }
+.medkit { position: absolute; bottom: 40px; width: 35px; height: 35px; font-size: 28px; z-index: 4; }
+
+#skill-announcement {
+    position: absolute; top: 15%; width: 100%; text-align: center;
+    font-size: 32px; font-weight: bold; color: #ff0055;
+    text-shadow: 0 0 15px #ff0055; display: none; z-index: 10;
+}
+
+/* 副武器神聖手榴彈 */
+.grenade {
+    position: absolute; width: 30px; height: 30px; font-size: 26px; z-index: 7;
+    display: flex; align-items: center; justify-content: center;
+    filter: drop-shadow(0 0 8px #ffcc00);
+}
+.explosion-wave {
+    position: absolute; width: 150px; height: 150px;
+    background: radial-gradient(circle, rgba(255,204,0,0.8) 0%, rgba(255,50,0,0.4) 60%, rgba(0,0,0,0) 100%);
+    border-radius: 50%; z-index: 6; transform: scale(0);
+    animation: explodeAnim 0.4s ease-out forwards;
+}
+@keyframes explodeAnim { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
+/* 選單遮罩 */
+#overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background-color: rgba(10, 0, 20, 0.95);
+    display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
+}
+#overlay h2 { font-size: 32px; color: #ffcc00; text-shadow: 0 0 15px #ffcc00; margin-bottom: 10px; }
+#overlay p { font-size: 16px; color: #aaa; margin-bottom: 30px; text-align: center; line-height: 1.6; }
+#start-btn {
+    padding: 12px 35px; font-size: 20px; background-color: #ffcc00; color: #000;
+    border: none; box-shadow: 0 0 15px #ffcc00; cursor: pointer; font-weight: bold;
+}
+#start-btn:hover { background-color: #e6b800; }

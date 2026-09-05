@@ -15,7 +15,6 @@ const Game1Manager = {
 
         // 綁定家具點擊調查
         document.querySelectorAll('.solid-obj').forEach(item => {
-            // 重置家具顯示
             if (item.id === 'sofa') item.textContent = '🛋️';
             if (item.id === 'table') item.textContent = '🪑';
             if (item.id === 'shoes') item.textContent = '👞';
@@ -24,13 +23,13 @@ const Game1Manager = {
                 if (!isPlaying()) return;
                 
                 const pEl = document.getElementById('player');
-                // 檢查玩家與家具的距離（水平距離小於 100 像素內才能翻找）
+                // 水平距離小於 100 像素內才能翻找
                 if (Math.abs(pEl.getBoundingClientRect().left - item.getBoundingClientRect().left) < 100) {
                     const name = item.getAttribute('data-name');
                     if (name === this.keyLocation) {
                         this.hasKey = true;
                         objText.textContent = "🔑 成功在俄亥俄角落撈到大門鑰匙！快前往最右邊的走進大門(🚪)！";
-                        item.textContent = '❌'; // 調查過打叉
+                        item.textContent = '❌'; 
                     } else {
                         objText.textContent = `調查了 ${name}，裡面什麼都沒有...再去別的位置看看！`;
                     }
@@ -43,9 +42,9 @@ const Game1Manager = {
 
     // 負責在每幀更新家人（爸、媽、狗）的隨機往復移動
     updateFamily: function(stageWidth) {
-        this.moveMember('member-dad', 'dad', 200, 450);
-        this.moveMember('member-mom', 'mom', 400, 700);
-        this.moveMember('member-dog', 'dog', 650, 800);
+        this.moveMember('member-dad', 'dad', 200, stageWidth * 0.45);
+        this.moveMember('member-mom', 'mom', stageWidth * 0.4, stageWidth * 0.7);
+        this.moveMember('member-dog', 'dog', stageWidth * 0.65, stageWidth * 0.9);
     },
 
     moveMember: function(id, key, minX, maxX) {

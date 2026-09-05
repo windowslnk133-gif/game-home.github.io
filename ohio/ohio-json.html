@@ -23,17 +23,20 @@
         .solid-block { position: absolute; font-size: 35px; }
         .family-member { position: absolute; bottom: 40px; font-size: 40px; }
         .truck { position: absolute; bottom: 40px; font-size: 55px; }
-        #boss { position: absolute; bottom: 40px; right: 80px; font-size: 95px; transition: 0.1s; }
+        #boss { position: absolute; bottom: 40px; right: 40px; font-size: 95px; z-index: 4; transition: transform 0.1s; }
         #computer-indicator { position: absolute; bottom: 40px; height: 100%; background: rgba(255,0,0,0.4); border: 2px dashed red; display: none; }
         .salary-money { position: absolute; font-size: 30px; animation: f 0.6s ease-out forwards; pointer-events: none; }
         @keyframes f { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-100px); opacity: 0; } }
         #leaderboard-area { margin: 10px 0; background: rgba(0,0,0,0.6); border: 1px dashed #ffcc00; padding: 10px; border-radius: 5px; width: 85%; }
         #leaderboard-list { padding-left: 20px; color: #00ffcc; font-size: 13px; text-align: left; }
         #game-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(10,0,20,0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
-        #mobile-controls { display: none; position: fixed; bottom: 20px; width: 100vw; justify-content: space-between; padding: 0 20px; pointer-events: none; }
+        #mobile-controls { display: none; position: fixed; bottom: 20px; width: 100vw; justify-content: space-between; padding: 0 20px; pointer-events: none; align-items: center; }
         .mobile-btn { width: 65px; height: 65px; background: rgba(255,255,255,0.15); border: 3px solid #ffcc00; border-radius: 50%; color: #ffcc00; font-size: 24px; font-weight: bold; display: flex; align-items: center; justify-content: center; pointer-events: auto; }
         #mb-attack { border-color: #ff0055; color: #ff0055; background: rgba(255,0,85,0.1); }
-        @media (max-width: 768px) { #game-stage { height: 45vh; } #boss { font-size: 65px; } #sofa { left: 100px!important; } #table { left: 200px!important; } #shoes { left: 300px!important; } }
+        @media (max-width: 768px) { #game-stage { height: 45vh; } #boss { font-size: 65px; right: 20px; } #sofa { left: 100px!important; } #table { left: 200px!important; } #shoes { left: 300px!important; } }
+        .ground-bomb { position: absolute; bottom: 40px; font-size: 32px; z-index: 4; animation: pulse 0.5s infinite alternate; }
+        .flying-bomb { position: absolute; font-size: 32px; z-index: 7; transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+        @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.2); } }
     </style>
 </head>
 <body>
@@ -84,21 +87,27 @@
             <h4>🏆 最速巨鴨榜 (JSON)</h4>
             <ol id="leaderboard-list"></ol>
         </div>
-        <button id="game-overlay-btn" style="margin-top:10px; padding: 8px 16px; font-weight: bold; cursor: pointer;">開戰！</button>
+        <button id="game-overlay-btn" style="margin-top:10px;">開戰！</button>
     </div>
     <div id="mobile-controls">
         <div style="display:flex; gap:10px;"><div class="mobile-btn" id="mb-left">A</div><div class="mobile-btn" id="mb-right">D</div></div>
-        <div class="mobile-btn" id="mb-attack">E</div>
+        <div class="mobile-btn" id="mb-attack" style="font-size:13px; border-color:#00ffcc; color:#00ffcc;">AUTO</div>
     </div>
     <script>
         let currentStage=1, playerHp=120, isPlayingG=false, hasKey=false, keyLocation="", stageConfigData=null, googlePlayerName="匿名巨鴨";
         let playerX=50, playerY=0, playerVy=0, isGrounded=true, gravity=0.6, jumpForce=13, moveSpeed=5;
         let isShieldActive=false, isShieldReady=true, keys={w:false,a:false,s:false,d:false,space:false,t:false};
         let truckTimer=0, stage2Progress=0, bossActionTimer=0, bossHp=1200, gameStartTime=0, totalElapsedSeconds=0, familyVel={dad:3,mom:-4,dog:5};
-        let animationId = null;
+        let animationId = null, bombSpawnTimer=0;
 
         const pEl=document.getElementById('player'), shieldEff=document.getElementById('shield-effect'), stageEl=document.getElementById('game-stage'), pHpBar=document.getElementById('player-hp-bar'), pHpText=document.getElementById('player-hp-text'), bHpBar=document.getElementById('boss-hp-bar'), bHpText=document.getElementById('boss-hp-text'), cdShieldEl=document.getElementById('cd-shield'), objText=document.getElementById('objective-text'), timerDisplay=document.getElementById('timer-display'), overlay=document.getElementById('game-overlay'), overlayTitle=document.getElementById('overlay-title'), overlayDesc=document.getElementById('overlay-desc'), overlayBtn=document.getElementById('game-overlay-btn'), leaderboardArea=document.getElementById('leaderboard-area'), leaderboardList=document.getElementById('leaderboard-list');
         const localBGM=new Audio('./boss_musin.mp3'); localBGM.loop=true; localBGM.volume=0.25;
+
+        const defaultStageConfig = {
+            stage1: { name: "第 1 關：客廳秘境", objective: "尋找房間內的鑰匙以開啟大門！", familySpeed: { dad: 3, mom: -4, dog: 5 } },
+            stage2: { name: "第 2 關：公路逃亡", objective: "躲避卡車衝撞！", spawnRate: 60, truckSpeed: 8 },
+            stage3: { name: "第 3 關：決戰 Boss", objective: "擊敗老闆！", bossHp: 1200, bossAttackRate: 90 }
+        };
 
         const GameTools={
             playMusic:()=>{localBGM.play().catch(()=>{});}, stopMusic:()=>{localBGM.pause(); localBGM.currentTime=0;},
@@ -107,16 +116,10 @@
             flash:(el)=>{el.style.opacity='0.3'; setTimeout(()=>el.style.opacity='1',150);}
         };
 
-        const defaultStageConfig = {
-            stage1: { name: "第 1 關：客廳秘境", objective: "尋找房間內的鑰匙以開啟大門！", familySpeed: { dad: 3, mom: -4, dog: 5 } },
-            stage2: { name: "第 2 關：公路逃亡", objective: "躲避卡車衝撞！", spawnRate: 60, truckSpeed: 8 },
-            stage3: { name: "第 3 關：決戰 Boss", objective: "擊敗老闆！", bossHp: 1200, bossAttackRate: 90 }
-        };
-
         function initGoogleAuth() {
             if(typeof google==='undefined'){setTimeout(initGoogleAuth,200); return;}
             google.accounts.id.initialize({
-                client_id: "YOUR_CLIENT_ID.apps.googleusercontent.com", 
+                client_id: "googleusercontent.com",
                 callback: r=>{
                     try {
                         const tokenParts = r.credential.split('.');
@@ -125,38 +128,27 @@
                         googlePlayerName=p.name;
                         document.getElementById('google-user-status').innerHTML=`🟢 驗證成功：${googlePlayerName}`;
                         document.getElementById('google-login-btn').style.display='none';
-                    } catch(err) {
-                        console.error("解碼失敗:", err);
-                    }
+                    } catch(err) { console.error("解碼失敗:", err); }
                 }
             });
             google.accounts.id.renderButton(document.getElementById("google-login-btn"),{theme:"dark",size:"medium",shape:"pill"});
         }
 
         async function loadGameStageSettings() {
-            let url='./ohio-json.json'; 
+            let url='./ohio-json.json';
             try {
                 const res=await fetch(url); 
                 stageConfigData=await res.json();
             } catch(e) { 
-                stageConfigData = defaultStageConfig; 
+                stageConfigData = defaultStageConfig;
             }
             document.getElementById('current-stage-text').textContent="第 1 關";
-            showOverlay("Ohio 2 完全體","[W/A/S/D]移動/跳躍，[R]防禦，[E]攻擊。\nT+3可直接跳關。請先登入Google以記錄排行！","開戰！");
+            showOverlay("Ohio 2 💣 炸彈外掛版","[W/A/S/D]移動與跳躍，[R]防禦。\n第3關黑心老闆【固定在右側不准動】，踩地上的炸彈（💣）將發射自動追蹤導彈投擲！","開戰！");
         }
 
         function detect() {
             const isM=/Android|iPhone|iPad/i.test(navigator.userAgent)||window.innerWidth<=768, p=document.getElementById('mobile-controls');
-            if(isM&&p){ 
-                p.style.display='flex'; 
-                moveSpeed=4; 
-                document.getElementById('mb-left').ontouchstart=()=>{keys.a=true;}; 
-                document.getElementById('mb-left').ontouchend=()=>{keys.a=false;}; 
-                document.getElementById('mb-right').ontouchstart=()=>{keys.d=true;}; 
-                document.getElementById('mb-right').ontouchend=()=>{keys.d=false;}; 
-                document.getElementById('mb-attack').ontouchstart=e=>{e.preventDefault(); if(isPlayingG)triggerAttack();}; 
-                stageEl.ontouchstart=e=>{if(e.touches[0].clientY<window.innerHeight*0.5){keys.w=true; setTimeout(()=>keys.w=false,100);}}; 
-            }
+            if(isM&&p){ p.style.display='flex'; moveSpeed=4; document.getElementById('mb-left').ontouchstart=()=>{keys.a=true;}; document.getElementById('mb-left').ontouchend=()=>{keys.a=false;}; document.getElementById('mb-right').ontouchstart=()=>{keys.d=true;}; document.getElementById('mb-right').ontouchend=()=>{keys.d=false;}; stageEl.ontouchstart=e=>{if(e.touches[0].clientY<window.innerHeight*0.5){keys.w=true; setTimeout(()=>keys.w=false,100);}}; }
         }
 
         window.addEventListener('load',()=>{detect(); loadGameStageSettings(); initGoogleAuth();});
@@ -187,8 +179,7 @@
             if(e.code==='Space'){keys.space=true; e.preventDefault();} 
             if(e.key==='t'||e.key==='T')keys.t=true; 
             if(keys.t&&(e.key==='3')) {if(isPlayingG&&currentStage!==3)setupStage3();} 
-            if(e.key==='r'||e.key==='R')triggerShield(); 
-            if(e.key==='e'||e.key==='E')triggerAttack();
+            if(e.key==='r'||e.key==='R')triggerShield();
         });
 
         window.addEventListener('keyup',e=>{ 
@@ -247,21 +238,19 @@
         }
 
         function setupStage3(){ 
-            currentStage=3; playerX=100; playerY=0; bossActionTimer=0; 
+            currentStage=3; playerX=50; playerY=0; bossActionTimer=0; bombSpawnTimer=0; 
             const c=stageConfigData.stage3; 
             bossHp=c.bossHp; 
             document.getElementById('current-stage-text').textContent=c.name; 
-            objText.textContent=c.objective; 
+            objText.textContent="任務：黑心老闆已被禁錮在右側無法移動！踩地上的炸彈(💣)即可全自動鎖定轟炸！"; 
             document.getElementById('stage1-elements').style.display='none'; 
             document.getElementById('stage2-elements').style.display='none'; 
             document.getElementById('stage3-elements').style.display='block'; 
             document.getElementById('boss-hud').style.display='block'; 
             document.getElementById('computer-indicator').style.display='none'; 
             document.getElementById('computer-boss').style.display='none'; 
-            const b=document.getElementById('boss'); 
-            b.style.transform='scale(1)'; 
-            b.style.left=''; 
-            updateHpUI();
+            updateHpUI(); 
+            document.querySelectorAll('.ground-bomb, .flying-bomb').forEach(el=>el.remove());
         }
 
         function triggerShield(){
@@ -273,18 +262,21 @@
             setTimeout(()=>{isShieldReady=true; if(isPlayingG)cdShieldEl.innerHTML=`防禦[R]: <span style="color:#00ffcc">就緒</span>`;},2000);
         }
 
-        function triggerAttack(){
-            if(currentStage!==3||!isPlayingG)return; 
-            const pR=pEl.getBoundingClientRect(), bR=document.getElementById('boss').getBoundingClientRect(); 
-            if(pR.right>=bR.left-50&&pR.left<=bR.right+50){
-                bossHp=Math.max(0,bossHp-15); 
-                updateHpUI(); 
-                GameTools.spawnMoney(bR.left-stageEl.getBoundingClientRect().left+40,150); 
-                const b=document.getElementById('boss'); 
-                b.style.transform='scale(0.9) translateX(10px)'; 
-                setTimeout(()=>b.style.transform='scale(1)',100); 
-                if(bossHp<=0)gameWin();
-            }
+        function autoLaunchBomb(spawnX) {
+            const b = document.createElement('div'); b.className = 'flying-bomb'; b.textContent = '💣';
+            b.style.left = spawnX + 'px'; b.style.bottom = '50px'; stageEl.appendChild(b);
+            const bossLeftPos = document.getElementById('boss').getBoundingClientRect().left - stageEl.getBoundingClientRect().left;
+            setTimeout(() => {
+                b.style.left = (bossLeftPos + 20) + 'px'; b.style.bottom = '80px'; b.style.transform = 'rotate(360deg) scale(1.3)';
+                setTimeout(() => {
+                    b.remove(); if(!isPlayingG || currentStage !== 3) return;
+                    bossHp = Math.max(0, bossHp - 60); updateHpUI();
+                    GameTools.spawnMoney(bossLeftPos + 30, 150);
+                    const bossDom = document.getElementById('boss');
+                    bossDom.style.transform = 'scale(0.8) skewX(-15deg)'; setTimeout(()=>bossDom.style.transform='scale(1)', 150);
+                    if(bossHp <= 0) gameWin();
+                }, 400);
+            }, 50);
         }
 
         function gameLoop() {
@@ -313,39 +305,53 @@
             pEl.style.left=playerX+'px'; 
             pEl.style.bottom=(40+playerY)+'px';
 
-            if(currentStage===1){ 
+            if(currentStage===1){
                 m('member-dad','dad',200,stageEl.clientWidth*0.45); 
                 m('member-mom','mom',stageEl.clientWidth*0.4,stageEl.clientWidth*0.7); 
-                m('member-dog','dog',stageEl.clientWidth*0.65,stageEl.clientWidth*0.9); 
-                document.querySelectorAll('.family-member').forEach(mEl=>{if(GameTools.checkCollision(pEl,mEl))takeDamage(15);}); 
-                if(hasKey&&playerX>=stageEl.clientWidth-90)setupStage2(); 
+                m('member-dog','dog',stageEl.clientWidth*0.65,stageEl.clientWidth*0.9);
+                document.querySelectorAll('.family-member').forEach(mEl=>{if(GameTools.checkCollision(pEl,mEl))takeDamage(15);});
+                if(hasKey&&playerX>=stageEl.clientWidth-90) setupStage2();
             }
-            else if(currentStage===2){ 
+            else if(currentStage===2){
                 stage2Progress+=0.2; 
                 objText.textContent=`公路逃亡進度: ${Math.floor(stage2Progress)}%`; 
                 if(stage2Progress>=100)setupStage3(); 
-                truckTimer++; 
+                truckTimer++;
                 if(truckTimer%stageConfigData.stage2.spawnRate===0){
                     const t=document.createElement('div'); 
                     t.className='truck'; 
                     t.textContent='🚚'; 
                     t.style.left=stageEl.clientWidth+'px'; 
                     document.getElementById('stage2-elements').appendChild(t);
-                } 
-                document.querySelectorAll('.truck').forEach(t => { 
+                }
+                document.querySelectorAll('.truck').forEach(t=>{
                     let tx=parseFloat(t.style.left)-stageConfigData.stage2.truckSpeed; 
                     t.style.left=tx+'px'; 
                     if(GameTools.checkCollision(pEl,t)){takeDamage(25); t.remove();} 
-                    if(tx<-80)t.remove(); 
-                }); 
+                    if(tx<-80)t.remove();
+                });
             }
-            else if(currentStage===3){ 
-                bossActionTimer++; 
-                if(bossActionTimer>=stageConfigData.stage3.bossAttackRate){
-                    bossActionTimer=0; 
-                    Math.random()>0.5?dash():slam();
-                } 
-                if(GameTools.checkCollision(pEl,document.getElementById('boss')))takeDamage(10);
+            else if(currentStage===3){
+                bossActionTimer++;
+                if(bossActionTimer >= stageConfigData.stage3.bossAttackRate){ bossActionTimer=0; slam(); }
+                if(GameTools.checkCollision(pEl,document.getElementById('boss'))) takeDamage(10);
+
+                bombSpawnTimer++;
+                if(bombSpawnTimer % 90 === 0) {
+                    const bomb = document.createElement('div'); 
+                    bomb.className = 'ground-bomb'; 
+                    bomb.textContent = '💣';
+                    bomb.style.left = (Math.random() * (stageEl.clientWidth * 0.5) + 50) + 'px';
+                    document.getElementById('stage3-elements').appendChild(bomb);
+                }
+
+                document.querySelectorAll('.ground-bomb').forEach(b => {
+                    if(GameTools.checkCollision(pEl, b)) {
+                        const bombX = parseFloat(b.style.left); 
+                        b.remove();
+                        autoLaunchBomb(bombX);
+                    }
+                });
             }
 
             updateHpUI(); 
@@ -356,15 +362,8 @@
             const el=document.getElementById(id); 
             if(!el)return; 
             let x=(parseFloat(el.style.left)||minX)+familyVel[key]; 
-            if(x<=minX||x>=maxX)familyVel[key]=-familyVel[key]; 
+            if(x<=minX||x >= maxX)familyVel[key]=-familyVel[key]; 
             el.style.left=x+'px';
-        }
-
-        function dash(){
-            const rX=Math.random()*(stageEl.clientWidth-200)+50, b=document.getElementById('boss'); 
-            b.style.left=rX+'px'; 
-            b.style.transform='scale(1.2) rotate(15deg)'; 
-            setTimeout(()=>b.style.transform='scale(1) rotate(0deg)',300);
         }
 
         function slam(){

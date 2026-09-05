@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runinger 2：失落的王國</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+        }
+
+        body {
+            background-color: #0b0f19;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+            z-index: 10;
+        }
+
+        .back-btn:hover {
+            background: #2ea043;
+        }
+
+        .game-tips {
+            margin-bottom: 15px;
+            color: #38bdf8;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        canvas {
+            border: 3px solid #38bdf8;
+            background: #111827;
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.3);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 返回首頁按鈕 -->
+    <a href="../index.html" class="back-btn">← 返回大廳</a>
+
+    <div class="game-tips">按 [A] 左移 | [D] 右移 | [W] 跳躍（摔落底端死亡）</div>
+    <canvas id="gameCanvas" width="900" height="500"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 雲朵玩家屬性 (W/A/D 控制)
+        let player = {
+            x: 100,
+            y: 200,
+            radius: 24,
+            vx: 0,
+            vy: 0,
+            speed: 5,
+            jumpPower: -13,
+            gravity: 0.6,
+            isGrounded: false
+        };
+
+        let keys = { w: false, a: false, d: false };
+        let platforms = [];
+        let obstacles = [];
+        let cameraX = 0;
+        let score = 0;
+        let isGameOver = false;
+
+        function init() {
+            window.addEventListener('keydown', e => handleKey(e, true));
+            window.addEventListener('keyup', e => handleKey(e, false));
+            canvas.addEventListener('click', () => { if (isGameOver) resetGame(); });
+            resetGame();
+            gameLoop();
+        }
+
+        function handleKey(e, isPressed) {
+            const k = e.key.toLowerCase();
+            if (k === 'w' || k === 'a' || k === 'd') {
+                keys[k] = isPressed;
+            }
+        }
+
+        function resetGame() {
+            player.x = 100;
+            player.y = 200;
+            player.vx = 0;
+            player.vy = 0;
+            cameraX = 0;
+            score = 0;
+            isGameOver = false;
+
+            // 初始化生成起始平台
+            platforms = [
+                { x: 50, y: 350, width: 300, height: 20 }
+            ];
+            obstacles = [];
+
+            // 預先生成懸空平台與障礙物
+            for (let i = 0; i < 15; i++) {
+                generateNextSection();
+            }
+        }
+
+        // 隨機刷出懸空平台與障礙物
+        function generateNextSection() {
+            let lastPlat = platforms[platforms.length - 1];
+            
+            // 隨機懸空距離與高度變化
+            let gap = Math.random() * 120 + 80;
+            let width = Math.random() * 180 + 120;
+            let nextX = lastPlat.x + lastPlat.width + gap;
+            let nextY = Math.min(Math.max(lastPlat.y + (Math.random() * 140 - 70), 180), 420);
+
+            platforms.push({ x: nextX, y: nextY, width: width, height: 20 });
+
+            // 50% 機率在懸空平台上刷出障礙物（撞擊不扣血，但會擋路）
+            if (Math.random() < 0.5) {
+                let obsWidth = 25;
+                let obsHeight = Math.random() * 30 + 25;
+                obstacles.push({
+                    x: nextX + width / 2 - obsWidth / 2,
+                    y: nextY - obsHeight,
+                    width: obsWidth,
+                    height: obsHeight
+                });
+            }
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            // 水平移動 (A/D)
+            if (keys.a) player.vx = -player.speed;
+            else if (keys.d) player.vx = player.speed;
+            else player.vx = 0;
+
+            // 跳躍 (W)
+            if (keys.w && player.isGrounded) {
+                player.vy = player.jumpPower;
+                player.isGrounded = false;
+            }
+
+            // 重力
+            player.vy += player.gravity;
+
+            // 套用速度
+            player.x += player.vx;
+            player.y += player.vy;
+
+            // 隨螢幕滾動相機
+            if (player.x - cameraX > 300) {
+                cameraX = player.x - 300;
+            }
+
+            // 分數計算
+            score = Math.max(score, Math.floor(player.x / 10));
+
+            // 1. 懸空平台碰撞檢測
+            player.isGrounded = false;
+            platforms.forEach(plat => {
+                if (
+                    player.x + player.radius > plat.x &&
+                    player.x - player.radius < plat.x + plat.width &&
+                    player.y + player.radius >= plat.y &&
+                    player.y + player.radius <= plat.y + plat.height + player.vy &&
+                    player.vy >= 0
+                ) {
+                    player.y = plat.y - player.radius;
+                    player.vy = 0;
+                    player.isGrounded = true;
+                }
+            });
+
+            // 2. 障礙物碰撞檢測 (無傷機制：僅進行物理阻擋，不扣血)
+            obstacles.forEach(obs => {
+                if (
+                    player.x + player.radius > obs.x &&
+                    player.x - player.radius < obs.x + obs.width &&
+                    player.y + player.radius > obs.y &&
+                    player.y - player.radius < obs.y + obs.height
+                ) {
+                    // 推開玩家擋住去路
+                    if (player.vx > 0) player.x = obs.x - player.radius;
+                    if (player.vx < 0) player.x = obs.x + obs.width + player.radius;
+                }
+            });
+
+            // 3. 掉落死亡判定 (掉出畫面底部)
+            if (player.y - player.radius > canvas.height) {
+                isGameOver = true;
+            }
+
+            // 動態補充新平台
+            let lastPlat = platforms[platforms.length - 1];
+            if (lastPlat.x - cameraX < canvas.width + 200) {
+                generateNextSection();
+            }
+        }
+
+        // 繪製表情包雲朵 (Cloud Emoji Style)
+        function drawCloudEmoji(x, y, radius) {
+            ctx.save();
+            ctx.translate(x - cameraX, y);
+
+            // 雲朵主體 (圓弧堆疊)
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.arc(-radius * 0.6, 2, radius * 0.7, 0, Math.PI * 2);
+            ctx.arc(radius * 0.6, 2, radius * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 腮紅
+            ctx.fillStyle = '#ffb6c1';
+            ctx.beginPath();
+            ctx.arc(-radius * 0.5, 5, 4, 0, Math.PI * 2);
+            ctx.arc(radius * 0.5, 5, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 表情包眼睛
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(-radius * 0.3, -2, 3, 0, Math.PI * 2);
+            ctx.arc(radius * 0.3, -2, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 表情包微笑 (Mouth)
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 3, 6, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 繪製懸空平台
+            ctx.fillStyle = '#38bdf8';
+            platforms.forEach(plat => {
+                if (plat.x + plat.width > cameraX && plat.x < cameraX + canvas.width) {
+                    ctx.fillRect(plat.x - cameraX, plat.y, plat.width, plat.height);
+                }
+            });
+
+            // 2. 繪製障礙物 (紅色柱子)
+            ctx.fillStyle = '#f43f5e';
+            obstacles.forEach(obs => {
+                if (obs.x + obs.width > cameraX && obs.x < cameraX + canvas.width) {
+                    ctx.fillRect(obs.x - cameraX, obs.y, obs.width, obs.height);
+                }
+            });
+
+            // 3. 繪製表情包雲朵
+            drawCloudEmoji(player.x, player.y, player.radius);
+
+            // 4. 得分顯示
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '20px sans-serif';
+            ctx.fillText(`距離分數: ${score} m`, 20, 40);
+
+            // 5. 遊戲結束畫面 (掉落死亡)
+            if (isGameOver) {
+                ctx.fillStyle = 'rgba(0,0,0,0.8)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = '#f43f5e';
+                ctx.font = 'bold 38px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('跌落深淵！GAME OVER', canvas.width / 2, 210);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '20px sans-serif';
+                ctx.fillText(`最終距離: ${score} m`, canvas.width / 2, 260);
+                ctx.fillText('點擊畫面重新開始', canvas.width / 2, 310);
+                ctx.textAlign = 'left';
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        init();
+    </script>
+</body>
+</html>

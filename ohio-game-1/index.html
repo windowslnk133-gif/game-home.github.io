@@ -2,71 +2,37 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>俄亥俄鍵盤俠 vs 23100HP突變巨鴨（不壞分開版）</title>
-    <!-- 引入樣式表 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ohio Game 1 - 主選單</title>
     <link rel="stylesheet" href="style.css">
+    <!-- 引入 Google 身分驗證庫 (如有需要可自行填入 Client ID) -->
+    <script src="https://google.com" async defer></script>
 </head>
 <body>
-
-    <div id="hud">
-        <h1>ONLY IN OHIO：終焉決戰</h1>
-        <div class="bar-container">
-            <div class="bar-wrapper">
-                <span>玩家血量 (HP)</span>
-                <div class="bar-bg">
-                    <div id="player-hp-bar"></div>
-                    <div class="bar-text" id="player-hp-text">100 / 100</div>
-                </div>
-            </div>
-            <div class="bar-wrapper">
-                <span>俄亥俄暴君鴨 (BOSS HP)</span>
-                <div class="bar-bg">
-                    <div id="boss-hp-bar"></div>
-                    <div class="bar-text" id="boss-hp-text">23100 / 23100</div>
-                </div>
-            </div>
-        </div>
-        <div id="skill-cd-bar">副武器 [E] 神聖手雷：<span id="cd-text">準備就緒</span></div>
-    </div>
-
-    <div id="game-stage">
-        <div id="skill-announcement">BOSS 技能</div>
-        <div id="ground"></div>
+    <div id="overlay" style="position: relative; width: 100vw; height: 100vh;">
+        <h1 style="color: #ff3333; font-size: 50px; margin-bottom: 5px;">Ohio Game 1</h1>
+        <h2 style="color: #ffff00; margin-top:0;">行動裝置 / 電腦 雙支援版</h2>
         
-        <div id="spike-indicator" class="indicator"></div>
-        <div id="slam-indicator" class="indicator"></div>
-        <div id="meteor-indicator" class="indicator"></div>
+        <!-- Google 登入狀態顯示區 -->
+        <div id="google-login-area" style="margin: 15px 0;">
+            <div id="g_id_onload"
+                 data-client-id="25456804335-lcpbgbludrs2pq25h20pa8dusoabos3s.apps.googleusercontent.com"
+                 data-callback="handleCredentialResponse">
+            </div>
+            <div class="g_id_signin" data-type="standard"></div>
+            <p id="user-welcome" style="color: #00ffcc; font-weight: bold; margin-top: 10px;"></p>
+        </div>
 
-        <div id="spike-effect" class="skill-effect">🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵🌵</div>
-        <div id="meteor-effect" class="skill-effect">☄️</div>
-
-        <div id="player">👨<div id="weapon">⌨️</div></div>
-        <div id="boss">🦆</div>
-    </div>
-
-    <div id="overlay">
-        <h2 id="overlay-title">決戰俄亥俄之巔</h2>
-        <p id="overlay-desc">
-            控制：[A] 左移 | [D] 右移 | [空白鍵] 跳躍<br>
-            副武器：[E] 投擲神聖手雷彈 (-1000HP，CD 8秒)！<br>
-            戰術：靠近巨鴨自動近戰敲擊！注意閃避地刺、重壓與 888 傷害隕石！
+        <p style="max-width: 600px; line-height: 1.6; font-size: 15px; padding: 0 10px; text-align: center;">
+            <b>【遊戲任務】</b><br>
+            關卡 1：在充滿俄亥俄迷因的平台跑酷尋找黃色鑰匙，打開右側大門。<br>
+            關卡 2：進入 Boss 戰，迎戰擁有 23,500 HP 的 Ohio 頂級大鴨鴨！
         </p>
-        <button id="start-btn">拿起鍵盤開戰</button>
+        
+        <button class="menu-btn" onclick="window.location.href='game.html'">開始 Ohio 冒險</button>
     </div>
 
-
-    <div id="yt-players" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;">
-        <div id="sfx-player"></div>
-    </div>
-
-    <!-- 載入官方 YouTube API -->
-    <script src="https://youtube.com"></script>
-
-    <!-- 順序保持不變 -->
-    <script src="tool.js"></script>
-    <script src="boss.js"></script>
-    <script src="game.js"></script>
+    <!-- 優先載入資料庫/登入管理，讓 game.html 也能共用狀態 -->
+    <script src="data.js"></script>
 </body>
 </html>
-

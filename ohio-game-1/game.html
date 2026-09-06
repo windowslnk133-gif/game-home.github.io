@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ohio Game 1 - 遊戲中</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="game-wrapper">
+    <canvas id="gameCanvas" width="1000" height="600"></canvas>
+    
+    <div id="ui-layer">
+        <div>
+            <div>玩家: <span id="player-name">匿名特務</span> | HP: <span id="player-hp-text">100</span> / 100 <span id="shield-status" style="color:#00ffcc;"></span></div>
+            <div class="hp-bar-container"><div id="player-hp-bar"></div></div>
+            <div id="stage-text" style="margin-top: 5px; color: #ffff00;">任務：尋找鑰匙並前往右側大門</div>
+        </div>
+        <div id="boss-ui">
+            <div>OHIO 巨鴨 Boss HP: <span id="boss-hp-text">23500</span> / 23500</div>
+            <div class="hp-bar-container" style="width: 300px;"><div id="boss-hp-bar"></div></div>
+            <div id="boss-action" style="color: #ff44ff; margin-top: 5px;"></div>
+        </div>
+    </div>
+
+    <!-- 工具欄 -->
+    <div id="hotbar">
+        <div class="slot active" id="slot-1" onclick="switchSlot(1)"><span class="key-num">1</span>⌨️<br>鍵盤<br><span style="color:#888; font-size:9px;">自動攻擊</span></div>
+        <div class="slot" id="slot-2" onclick="switchSlot(2)"><span class="key-num">2</span>💣<br>手雷<span class="cooldown" id="cd-grenade"></span></div>
+        <div class="slot" id="slot-3" onclick="switchSlot(3)"><span class="key-num">3</span>🛡️<br>防疫盾<span class="cooldown" id="cd-shield"></span></div>
+    </div>
+
+    <!-- 虛擬按鍵 -->
+    <div id="mobile-controls">
+        <div class="btn-group">
+            <div class="v-btn" id="btn-left">A</div>
+            <div class="v-btn" id="btn-right">D</div>
+        </div>
+        <div class="btn-group">
+            <div class="v-btn" id="btn-defend" style="background: rgba(0, 150, 255, 0.2); width: 85px; height: 85px; font-size: 18px;">防禦/副武</div>
+            <div class="v-btn" id="btn-jump" style="width: 85px; height: 85px;">跳</div>
+        </div>
+    </div>
+
+    <div id="game-msg"></div>
+
+    <!-- 結算畫面彈窗 -->
+    <div id="overlay" style="display: none;">
+        <h1 id="end-title" style="font-size: 50px; margin-bottom: 5px;"></h1>
+        <h2 id="end-sub" style="margin-top:0;"></h2>
+        <button class="menu-btn" onclick="startGame()">重新挑戰</button>
+        <button class="menu-btn" style="background: #ccc; margin-left: 10px;" onclick="window.location.href='index.html'">回主選單</button>
+    </div>
+</div>
+
+<audio id="bossMusic" src="./boss_music.mp3" loop></audio>
+
+<!-- 依序載入模組化 JS 檔案 -->
+<script src="data.js"></script>
+<script src="tool.js"></script>
+<script src="player.js"></script>
+<script src="boss.js"></script>
+<script src="game.js"></script>
+
+</body>
+</html>

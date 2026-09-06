@@ -1,86 +1,83 @@
-class Boss {
+class Player {
     constructor() {
-        this.x = 750;
-        this.y = 250;
-        this.width = 180;
-        this.height = 300;
-        this.hp = 23500;
-        this.maxHp = 23500;
-        this.state = "IDLE"; // IDLE, JUMPING, FALLING
+        this.x = 50;
+        this.y = 450;
+        this.width = 30;
+        this.height = 50;
+        this.vx = 0;
         this.vy = 0;
-        this.skillTimer = 100;
+        this.hp = 100;
+        this.maxHp = 100;
+        this.grounded = false;
+        this.hasKey = false;
     }
 
-    update(player, bossAttacks, particles) {
-        this.skillTimer--;
-
-        // 處理重量壓頂的跳躍與落地
-        if (this.state === "JUMPING" || this.state === "FALLING") {
-            this.vy += 0.6;
-            this.y += this.vy;
-            if (this.y >= 250) {
-                this.y = 250;
-                this.state = "IDLE";
-                this.vy = 0;
-                
-                document.getElementById("boss-action").innerText = "⚠️ 鴨子重量壓頂落地！";
-                Tool.createImpactEffect(particles, this.x, 550, "#ff00ff");
-                
-                // 重量壓頂傷害判斷：在地面近處會被震波重傷
-                if (Math.abs(player.x - this.x) < 250 && player.y >= 450) {
-                    return 35; // 傳回造成的傷害數值
-                }
-            }
-        }
-
-        // 隨機施放三大神技
-        if (this.skillTimer <= 0) {
-            this.skillTimer = 160 + Math.random() * 100;
-            let rand = Math.random();
-
-            if (rand < 0.33) {
-                // 技能 1: 天上隕石
-                document.getElementById("boss-action").innerText = "🔮 準備：大鴨鴨召喚隕石！";
-                for(let i=0; i<3; i++) {
-                    bossAttacks.push({
-                        type: "METEOR",
-                        x: 100 + Math.random() * 600,
-                        y: 0,
-                        timer: 85,
-                        width: 60
-                    });
-                }
-            } 
-            else if (rand < 0.66) {
-                // 技能 2: 地上尖刺
-                document.getElementById("boss-action").innerText = "🔥 警告：地面即將突起尖刺！快爬上平台！";
-                bossAttacks.push({ type: "SPIKES", timer: 180 });
-            } 
-            else {
-                // 技能 3: 重量壓頂跳起
-                document.getElementById("boss-action").innerText = "🦘 準備：大鴨鴨使出重量壓頂！";
-                this.state = "JUMPING";
-                this.vy = -16;
-            }
-        }
-        return 0; // 沒有造成震波傷害
+    reset() {
+        this.x = 50;
+        this.y = 450;
+        this.vx = 0;
+        this.vy = 0;
+        this.hp = 100;
+        this.grounded = false;
+        this.hasKey = false;
     }
 
-    draw(ctx) {
-        // 黃色大身體
-        ctx.fillStyle = "#ffcc00";
+    update(keys, platforms) {
+        // 左右移動控制
+        if (keys["arrowleft"] || keys["a"]) this.vx = -6;
+        else if (keys["arrowright"] || keys["d"]) this.vx = 6;
+        else this.vx = 0;
+
+        // 跳躍
+        if ((keys["arrowup"] || keys["w"] || keys["space"]) && this.grounded) {
+            this.vy = -12;
+            this.grounded = false;
+        }
+
+        // 重力與位移
+        this.vy += 0.55;
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // 邊界限制
+        if (this.x < 0) this.x = 0;
+        if (this.x > 1000 - this.width) this.x = 1000 - this.width;
+
+        // 平台碰撞檢測
+        this.grounded = false;
+        platforms.forEach(p => {
+            if (this.x < p.x + p.width && this.x + this.width > p.x &&
+                this.y + this.height > p.y && this.y + this.height - this.vy <= p.y + 15) {
+                if (this.vy >= 0) {
+                    this.grounded = true;
+                    this.vy = 0;
+                    this.y = p.y - this.height;
+                }
+            }
+        });
+    }
+
+    draw(ctx, currentSlot, gameState, autoAttackTimer) {
+        // 畫玩家主體
+        ctx.fillStyle = "#00ffcc";
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        // 橘色大鴨嘴
-        ctx.fillStyle = "#ff6600";
-        ctx.fillRect(this.x - 30, this.y + 50, 40, 40);
-        // 邪惡的黑白眼睛
+        
+        // 畫眼睛
         ctx.fillStyle = "#000";
-        ctx.fillRect(this.x + 30, this.y + 30, 20, 20);
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(this.x + 30, this.y + 30, 8, 8);
+        ctx.fillRect(this.x + 18, this.y + 10, 6, 6);
 
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 20px Arial";
-        ctx.fillText("Ohio 巨鴨", this.x + 40, this.y - 10);
+        // 畫手上拿著的武器或道具
+        if (gameState === "BOSS") {
+            if (currentSlot === 1) {
+                ctx.fillStyle = "#ffffff"; // 鍵盤外觀
+                ctx.fillRect(this.x + 22, this.y + 20, 22, 12);
+            } else if (currentSlot === 2) {
+                ctx.fillStyle = "#ffff00"; // 手雷
+                ctx.beginPath(); ctx.arc(this.x + 25, this.y + 25, 6, 0, Math.PI*2); ctx.fill();
+            } else if (currentSlot === 3) {
+                ctx.fillStyle = "#00ffcc"; // 防疫盾
+                ctx.fillRect(this.x + 22, this.y + 15, 8, 20);
+            }
+        }
     }
 }

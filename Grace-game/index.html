@@ -3,229 +3,333 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grace Style Web 3D Remake</title>
+    <title>Grace 2D Side-Scroller</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background-color: #050505;
-            font-family: sans-serif;
-        }
-        /* 畫面中心的準心 */
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 6px;
-            height: 6px;
-            background-color: rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-        }
-        /* 開始與提示畫面 */
-        #instructions {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.85);
-            color: #ccc;
+            font-family: 'Courier New', Courier, monospace;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            text-align: center;
-            cursor: pointer;
-            z-index: 10;
+            height: 100vh;
         }
-        #instructions h1 { color: #fff; font-size: 2rem; letter-spacing: 4px; }
-        #instructions p { font-size: 1.1rem; line-height: 1.8; }
+        /* 頂部工作欄 / 狀態提示 */
+        #status-bar {
+            width: 800px;
+            background: #111;
+            border: 2px solid #333;
+            border-bottom: none;
+            color: #00ff00;
+            padding: 10px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+        canvas {
+            background-color: #1a1a1a;
+            border: 2px solid #333;
+            box-shadow: 0 0 30px rgba(0,0,0,0.9);
+        }
     </style>
-    <!-- 引入 Three.js 核心庫與第一人稱控制器 (PointerLockControls) -->
-    <script src="https://cloudflare.com"></script>
-    <script src="https://jsdelivr.net"></script>
 </head>
 <body>
 
-    <div id="crosshair"></div>
-    <div id="instructions">
-        <h1>G R A C E (Web Prototype)</h1>
-        <p>
-            點擊螢幕開始探索<br><br>
-            <b>W, A, S, D</b> - 移動方向<br>
-            <b>滑鼠</b> - 轉動視角查看四周
-        </p>
+    <!-- 工作欄 -->
+    <div id="status-bar">
+        <div>【狀態】<span id="player-state">正常探索中</span></div>
+        <div>【手電筒】<span id="flashlight-state" style="color: #ffcc00;">ON</span> [F鍵切換]</div>
+        <div>【操作】A D 移動 | 空白鍵 跳躍 | R 鍵 躲藏(HIDE)</div>
     </div>
 
+    <canvas id="gameCanvas"></canvas>
+
     <script>
-        // 1. 基本場景設定
-        const scene = new THREE.Scene();
-        // 加入壓抑的深灰色迷霧 (顏色, 近距離, 遠距離)
-        scene.background = new THREE.Color(0x0a0a0a);
-        scene.fog = new THREE.FogExp2(0x0a0a0a, 0.08); 
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-        // 2. 相機 (第一人稱視角)
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.y = 2; // 玩家身高約 2 單位
+        canvas.width = 800;
+        canvas.height = 400;
 
-        // 3. 渲染器
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true; // 開啟陰影增強恐怖感
-        document.body.appendChild(renderer.domElement);
+        // 遊戲基礎物理設定
+        const gravity = 0.5;
+        const groundY = 320;
 
-        // 4. 第一人稱控制器
-        const controls = new THREE.PointerLockControls(camera, document.body);
-        const instructions = document.getElementById('instructions');
+        // 1. 玩家設定
+        const player = {
+            x: 100,
+            y: groundY - 40,
+            w: 24,
+            h: 40,
+            vx: 0,
+            vy: 0,
+            speed: 4,
+            jumpForce: 10,
+            isGrounded: true,
+            flashlightOn: true,
+            isHiding: false
+        };
 
-        instructions.addEventListener('click', () => {
-            controls.lock(); // 點擊畫面後，鎖定滑鼠進入遊戲
-        });
-        controls.addEventListener('lock', () => instructions.style.display = 'none');
-        controls.addEventListener('unlock', () => instructions.style.display = 'flex');
+        // 2. 躲藏點 (HIDE 櫃子)
+        const hidingSpots = [
+            { x: 300, y: groundY - 70, w: 40, h: 70 },
+            { x: 600, y: groundY - 70, w: 40, h: 70 }
+        ];
 
-        // 5. 鍵盤移動邏輯
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-        const velocity = new THREE.Vector3();
-        const direction = new THREE.Vector3();
-
-        document.addEventListener('keydown', (e) => {
-            switch (e.code) {
-                case 'KeyW': moveForward = true; break;
-                case 'KeyS': moveBackward = true; break;
-                case 'KeyA': moveLeft = true; break;
-                case 'KeyD': moveRight = true; break;
+        // 3. 怪物設定
+        const monsters = [
+            {
+                name: '康乃馨',
+                type: 'carnation',
+                x: 700,
+                y: groundY - 50,
+                w: 30,
+                h: 50,
+                vx: -1.5,
+                baseSpeed: 1.5,
+                chaseSpeed: 4.5,
+                color: '#ff4466',
+                state: 'patrol' // patrol, chase
+            },
+            {
+                name: '海底魚',
+                type: 'anglerfish',
+                x: 400,
+                y: 100,
+                w: 45,
+                h: 30,
+                vx: 1,
+                vy: 0.5,
+                baseSpeed: 1,
+                color: '#33ccff',
+                bobTimer: 0 // 用於上下漂浮
             }
-        });
-        document.addEventListener('keyup', (e) => {
-            switch (e.code) {
-                case 'KeyW': moveForward = false; break;
-                case 'KeyS': moveBackward = false; break;
-                case 'KeyA': moveLeft = false; break;
-                case 'KeyD': moveRight = false; break;
-            }
-        });
+        ];
 
-        // 6. 光源設計 (手電筒 & 走廊頂燈)
-        // 微弱環境光
-        const ambientLight = new THREE.AmbientLight(0x111111);
-        scene.add(ambientLight);
+        // 4. 按鍵監聽
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            const key = e.key.toLowerCase();
+            keys[key] = true;
 
-        // 手電筒 (綁定在相機上的聚光燈)
-        const flashlight = new THREE.SpotLight(0xffffff, 1.5, 25, Math.PI / 6, 0.5, 1);
-        flashlight.castShadow = true;
-        scene.add(flashlight);
-        scene.add(flashlight.target); // 手電筒需要一個照射目標
-
-        // 走廊頂燈 (會閃爍的幽靈燈光)
-        const ceilingLight = new THREE.PointLight(0xffddaa, 1.2, 15);
-        ceilingLight.position.set(0, 4.5, -15);
-        scene.add(ceilingLight);
-
-        // 7. 建立走廊場景 (牆壁、地板、天花板)
-        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
-        const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
-
-        // 走廊長度 50, 寬度 4, 高度 5
-        const corridorWidth = 4;
-        const corridorHeight = 5;
-        const corridorLength = 60;
-
-        // 地板
-        const floorGeo = new THREE.PlaneGeometry(corridorWidth, corridorLength);
-        const floor = new THREE.Mesh(floorGeo, floorMaterial);
-        floor.rotation.x = -Math.PI / 2;
-        floor.receiveShadow = true;
-        scene.add(floor);
-
-        // 天花板
-        const ceilingGeo = new THREE.PlaneGeometry(corridorWidth, corridorLength);
-        const ceiling = new THREE.Mesh(ceilingGeo, wallMaterial);
-        ceiling.rotation.x = Math.PI / 2;
-        ceiling.position.y = corridorHeight;
-        scene.add(ceiling);
-
-        // 左牆
-        const leftWallGeo = new THREE.PlaneGeometry(corridorLength, corridorHeight);
-        const leftWall = new THREE.Mesh(leftWallGeo, wallMaterial);
-        leftWall.rotation.y = Math.PI / 2;
-        leftWall.position.set(-corridorWidth/2, corridorHeight/2, 0);
-        leftWall.receiveShadow = true;
-        scene.add(leftWall);
-
-        // 右牆
-        const rightWallGeo = new THREE.PlaneGeometry(corridorLength, corridorHeight);
-        const rightWall = new THREE.Mesh(rightWallGeo, wallMaterial);
-        rightWall.rotation.y = -Math.PI / 2;
-        rightWall.position.set(corridorWidth/2, corridorHeight/2, 0);
-        rightWall.receiveShadow = true;
-        scene.add(rightWall);
-
-        // 盡頭的門 (一個神祕的黑色矩形)
-        const doorGeo = new THREE.BoxGeometry(1.5, 3, 0.1);
-        const doorMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 });
-        const door = new THREE.Mesh(doorGeo, doorMat);
-        door.position.set(0, 1.5, -25);
-        scene.add(door);
-
-        // 8. 遊戲主要迴圈 (每秒 60 幀更新)
-        const clock = new THREE.Clock();
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            if (controls.isLocked) {
-                const delta = clock.getDelta();
-
-                // 阻尼/摩擦力減速
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-
-                // 計算移動方向 (前進速度調低，營造漫步的沉浸感)
-                direction.z = Number(moveForward) - Number(moveBackward);
-                direction.x = Number(moveRight) - Number(moveLeft);
-                direction.normalize(); 
-
-                const walkSpeed = 12.0; // 控制走路速度
-                if (moveForward || moveBackward) velocity.z -= direction.z * walkSpeed * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * walkSpeed * delta;
-
-                controls.moveRight(-velocity.x * delta);
-                controls.moveForward(-velocity.z * delta);
-
-                // 限制邊界 (不讓玩家穿牆)
-                if (camera.position.x > 1.7) camera.position.x = 1.7;
-                if (camera.position.x < -1.7) camera.position.x = -1.7;
-                if (camera.position.z > 25) camera.position.z = 25;
-                if (camera.position.z < -24.5) camera.position.z = -24.5; // 門前停下
+            // F 鍵：切換手電筒 (只有在沒躲藏時有用)
+            if (key === 'f' && !player.isHiding) {
+                player.flashlightOn = !player.flashlightOn;
+                document.getElementById('flashlight-state').innerText = player.flashlightOn ? "ON" : "OFF";
+                document.getElementById('flashlight-state').style.color = player.flashlightOn ? "#ffcc00" : "#666";
             }
 
-            // 更新手電筒位置與角度 (跟隨相機)
-            flashlight.position.copy(camera.position);
-            const vector = new THREE.Vector3(0, 0, -1);
-            vector.applyQuaternion(camera.quaternion);
-            flashlight.target.position.copy(camera.position).add(vector);
+            // R 鍵：切換躲藏 (靠近櫃子時)
+            if (key === 'r') {
+                let nearSpot = hidingSpots.some(spot => 
+                    player.x + player.w/2 > spot.x && player.x + player.w/2 < spot.x + spot.w
+                );
 
-            // 【事件觸發】當玩家走近遠處的頂燈時 (-10 附近)，頂燈開始恐怖地隨機閃爍
-            if (camera.position.z < -2) {
-                if (Math.random() > 0.92) {
-                    ceilingLight.intensity = Math.random() * 2.0;
+                if (nearSpot) {
+                    player.isHiding = !player.isHiding;
+                    if (player.isHiding) {
+                        player.flashlightOn = false; // 躲起來自動關手電筒
+                        document.getElementById('player-state').innerText = "已躲藏 (HIDE)";
+                        document.getElementById('player-state').style.color = "#00ffff";
+                        document.getElementById('flashlight-state').innerText = "OFF";
+                    } else {
+                        document.getElementById('player-state').innerText = "正常探索中";
+                        document.getElementById('player-state').style.color = "#00ff00";
+                    }
                 }
+            }
+        });
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        // 5. 邏輯更新
+        function update() {
+            // 如果正在躲藏，玩家不能移動，物理停止
+            if (player.isHiding) {
+                player.vx = 0;
+                player.vy = 0;
             } else {
-                ceilingLight.intensity = 1.2; // 離得遠時正常亮著
+                // 左右移動 (A, D)
+                if (keys['a']) player.vx = -player.speed;
+                else if (keys['d']) player.vx = player.speed;
+                else player.vx = 0;
+
+                // 跳躍 (空白鍵)
+                if (keys[' '] && player.isGrounded) {
+                    player.vy = -player.jumpForce;
+                    player.isGrounded = false;
+                }
+
+                // 套用重力
+                player.vy += gravity;
+
+                // 更新位置
+                player.x += player.vx;
+                player.y += player.vy;
+
+                // 地面碰撞
+                if (player.y >= groundY - player.h) {
+                    player.y = groundY - player.h;
+                    player.vy = 0;
+                    player.isGrounded = true;
+                }
+
+                // 邊界限制
+                if (player.x < 0) player.x = 0;
+                if (player.x > canvas.width - player.w) player.x = canvas.width - player.w;
             }
 
-            renderer.render(scene, camera);
+            // --- 怪物 AI 邏輯 ---
+            monsters.forEach(m => {
+                // 檢查玩家是否暴露 (沒躲藏，且手電筒亮著或距離太近)
+                let playerVisible = !player.isHiding && (player.flashlightOn || Math.abs(player.x - m.x) < 80);
+
+                if (m.type === 'carnation') {
+                    // 陸地怪物「康乃馨」AI
+                    if (playerVisible) {
+                        m.state = 'chase';
+                        // 往玩家方向衝刺
+                        m.vx = player.x > m.x ? m.chaseSpeed : -m.chaseSpeed;
+                    } else {
+                        m.state = 'patrol';
+                        // 恢復一般巡邏速度
+                        if (Math.abs(m.vx) !== m.baseSpeed) {
+                            m.vx = m.vx > 0 ? m.baseSpeed : -m.baseSpeed;
+                        }
+                        // 撞牆回頭
+                        if (m.x <= 0 || m.x >= canvas.width - m.w) m.vx *= -1;
+                    }
+                    m.x += m.vx;
+                } 
+                
+                else if (m.type === 'anglerfish') {
+                    // 空中怪物「海底魚」AI
+                    m.bobTimer += 0.05;
+                    m.y = 100 + Math.sin(m.bobTimer) * 30; // 上下漂浮
+                    
+                    // 海底魚緩慢左右游動
+                    if (m.x <= 50 || m.x >= canvas.width - 100) m.vx *= -1;
+                    m.x += m.vx;
+
+                    // 如果玩家開著手電筒，海底魚會被光源吸引，緩慢往玩家靠攏
+                    if (playerVisible && player.flashlightOn) {
+                        m.x += (player.x - m.x) * 0.01;
+                    }
+                }
+
+                // --- 死亡碰撞判定 ---
+                if (!player.isHiding) {
+                    if (player.x < m.x + m.w && player.x + player.w > m.x &&
+                        player.y < m.y + m.h && player.y + player.h > m.y) {
+                        alert(`你被 ${m.name} 抓到了！遊戲結束。`);
+                        // 重設遊戲
+                        player.x = 100;
+                        player.y = groundY - player.h;
+                        player.flashlightOn = true;
+                        player.isHiding = false;
+                        document.getElementById('player-state').innerText = "正常探索中";
+                    }
+                }
+            });
         }
 
-        animate();
+        // 6. 畫面繪製
+        function draw() {
+            // 背景黑幕（如果手電筒關閉，背景會變得極暗）
+            ctx.fillStyle = player.flashlightOn ? '#1a1a1a' : '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 視窗縮放適應
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+            // 繪製地面
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+            ctx.fillStyle = '#333';
+            ctx.fillRect(0, groundY, canvas.width, 4); // 地平線
+
+            // 繪製躲藏點（置物櫃/陰暗門）
+            hidingSpots.forEach(spot => {
+                ctx.fillStyle = '#3a2e2b'; // 木質/鐵皮櫃顏色
+                ctx.fillRect(spot.x, spot.y, spot.w, spot.h);
+                // 櫃子花紋
+                ctx.strokeStyle = '#221a18';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(spot.x + 4, spot.y + 4, spot.w - 8, spot.h - 8);
+                // 提示字
+                ctx.fillStyle = '#888';
+                ctx.font = '10px Arial';
+                ctx.fillText("按R躲藏", spot.x - 2, spot.y - 8);
+            });
+
+            // 繪製玩家 (如果躲藏起來就不畫出本體，或者畫個半透明暗示)
+            if (!player.isHiding) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(player.x, player.y, player.w, player.h);
+
+                // 手電筒光束效果
+                if (player.flashlightOn) {
+                    ctx.fillStyle = 'rgba(255, 255, 200, 0.15)';
+                    ctx.beginPath();
+                    ctx.moveTo(player.x + player.w, player.y + 15);
+                    ctx.lineTo(player.x + player.w + 180, player.y - 15);
+                    ctx.lineTo(player.x + player.w + 180, player.y + 45);
+                    ctx.fill();
+                }
+            } else {
+                // 躲藏時在櫃子顯示 HIDE 字樣
+                ctx.fillStyle = '#00ffff';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText("HIDDEN", player.x - 8, player.y - 10);
+            }
+
+            // 繪製怪物
+            monsters.forEach(m => {
+                ctx.fillStyle = m.color;
+                ctx.fillRect(m.x, m.y, m.w, m.h);
+
+                // 為怪物加上特色裝飾
+                if (m.type === 'carnation') {
+                    // 康乃馨：頂部畫一朵紅色的致命花瓣
+                    ctx.fillStyle = '#ff0000';
+                    ctx.beginPath();
+                    ctx.arc(m.x + m.w/2, m.y, 10, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 暴走狀態眼睛變紅
+                    ctx.fillStyle = m.state === 'chase' ? '#fff' : '#000';
+                    ctx.fillRect(m.vx > 0 ? m.x + m.w - 8 : m.x + 4, m.y + 12, 4, 4);
+                } 
+                else if (m.type === 'anglerfish') {
+                    // 海底魚：前方畫一個發光的誘餌（鮟鱇魚燈）
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(m.x, m.y + 10);
+                    ctx.quadraticCurveTo(m.x - 10, m.y - 10, m.x - 15, m.y);
+                    ctx.stroke();
+
+                    // 誘餌發光球
+                    ctx.fillStyle = '#ffff00';
+                    ctx.beginPath();
+                    ctx.arc(m.x - 15, m.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // 怪物名稱標籤
+                ctx.fillStyle = '#fff';
+                ctx.font = '11px Arial';
+                ctx.fillText(m.name, m.x - 5, m.y - 12);
+            });
+        }
+
+        // 7. 遊戲主迴圈
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
     </script>
 </body>
 </html>

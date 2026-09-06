@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grace & Doors Style: Room Runner</title>
+    <title>Doors Style: Ultra Edition with Cheat Menu</title>
     <style>
         body {
             margin: 0;
@@ -11,12 +11,20 @@
             background-color: #050505;
             font-family: 'Courier New', Courier, monospace;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
+            color: #fff;
         }
-        /* 頂部工作欄 */
+        #game-container {
+            display: flex;
+            gap: 20px;
+        }
+        /* 左側遊戲本體 */
+        #main-app {
+            display: flex;
+            flex-direction: column;
+        }
         #status-bar {
             width: 800px;
             background: #111;
@@ -27,363 +35,483 @@
             box-sizing: border-box;
             display: flex;
             justify-content: space-between;
-            font-size: 14px;
+            font-size: 13px;
         }
         canvas {
-            background-color: #151515;
+            background-color: #121212;
             border: 2px solid #333;
-            box-shadow: 0 0 30px rgba(0,0,0,0.9);
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
         }
-        /* 恐怖襲來倒數警告 */
-        #monster-warning {
+        /* 右側修改器面板 */
+        #cheat-menu {
+            width: 260px;
+            background: #1a1a1a;
+            border: 2px solid #ff3333;
+            padding: 15px;
+            box-sizing: border-box;
+            box-shadow: 0 0 20px rgba(255, 51, 51, 0.3);
+        }
+        #cheat-menu h3 { color: #ff3333; margin-top: 0; text-align: center; border-bottom: 1px solid #333; padding-bottom: 8px;}
+        .cheat-group { margin-bottom: 15px; }
+        .cheat-group label { display: block; font-size: 12px; margin-bottom: 5px; color: #aaa; }
+        button {
+            width: 100%; background: #333; color: #fff; border: 1px solid #555;
+            padding: 6px; margin-bottom: 5px; cursor: pointer; font-family: inherit; font-size: 12px;
+        }
+        button:hover { background: #444; border-color: #ff3333; }
+        button.active { background: #ff3333; color: #fff; font-weight: bold; }
+        input[type="number"] {
+            width: 70%; background: #000; color: #00ff00; border: 1px solid #333; padding: 4px; font-family: inherit;
+        }
+        /* 倒數計時與警告 UI */
+        #hud-overlay {
             position: absolute;
-            top: 150px;
-            color: #ff0033;
-            font-size: 28px;
-            font-weight: bold;
-            text-shadow: 0 0 10px #000;
-            display: none;
+            top: 200px; left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
             pointer-events: none;
-            letter-spacing: 2px;
         }
+        .warning-text { font-size: 24px; font-weight: bold; color: #ff0033; text-shadow: 0 0 8px #000; margin-bottom: 5px; display: none; }
+        .gosad-timer { font-size: 20px; color: #ffcc00; text-shadow: 0 0 5px #000; display: none; }
     </style>
 </head>
 <body>
 
-    <!-- 工作欄 -->
-    <div id="status-bar">
-        <div>【目前房間】<span id="room-count" style="color: #fff; font-weight: bold;">Room 1</span></div>
-        <div>【狀態】<span id="player-state">安全探索中</span></div>
-        <div>【手電筒】<span id="flashlight-state" style="color: #ffcc00;">ON</span> [F鍵切換]</div>
+<div id="game-container">
+    <div id="main-app">
+        <div id="status-bar">
+            <div>【房間】<span id="room-count" style="color: #fff; font-weight: bold;">Room 1</span></div>
+            <div>【金幣】<span id="coin-count" style="color: #ffd700; font-weight: bold;">0</span> 🪙</div>
+            <div>【道具】<span id="inv-count" style="color: #00ffff;">無護盾</span></div>
+            <div>【手電筒】<span id="flashlight-state" style="color: #ffcc00;">ON</span> [F]</div>
+            <div>【狀態】<span id="player-state">探索中</span></div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
     </div>
 
-    <div id="monster-warning">⚠️ 偵測到危險！在 6 秒內躲好！！ ⚠️</div>
+    <div id="cheat-menu">
+        <h3>G R A C E 修改器 V1.0</h3>
+        <div class="cheat-group">
+            <label>玩家屬性控制</label>
+            <button id="btn-god" onclick="toggleGodMode()">鎖定無敵：OFF</button>
+            <button onclick="addCheatCoins()">直接 +50 金幣</button>
+        </div>
+        <div class="cheat-group">
+            <label>房間跳轉</label>
+            <input type="number" id="input-room" value="1">
+            <button style="width: 25%; inline-size: auto;" onclick="jumpToRoom()">跳轉</button>
+        </div>
+        <div class="cheat-group">
+            <label>強制手動生成怪物 (測試用)</label>
+            <button onclick="spawnMonsterCheat('carnation')">召喚：康乃馨 (5房)</button>
+            <button onclick="spawnMonsterCheat('anglerfish')">召喚：海底魚 (8房)</button>
+            <button onclick="spawnMonsterCheat('jiji')">召喚：吉吉 (光照躲)</button>
+            <button onclick="spawnMonsterCheat('gosad')">召喚：GOSAD (索命催債)</button>
+        </div>
+    </div>
+</div>
 
-    <canvas id="gameCanvas"></canvas>
+<div id="hud-overlay">
+    <div id="warn-msg" class="warning-text">⚠️ 警告 ⚠️</div>
+    <div id="gosad-clock" class="gosad-timer">GOSAD 索命倒數: 75.0s (靠近按E給錢)</div>
+</div>
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 800;
+    canvas.height = 400;
 
-        canvas.width = 800;
-        canvas.height = 400;
+    const gravity = 0.5;
+    const groundY = 320;
 
-        const gravity = 0.5;
-        const groundY = 320;
+    // 遊戲核心數據
+    let currentRoom = 1;
+    let coins = 0;
+    let hasShield = false; 
+    let lastTime = performance.now();
 
-        // 遊戲全局變數
-        let currentRoom = 1;
-        let warningTimer = 0; // 倒數計時（秒）
-        let warningActive = false;
-        let currentMonsterInRoom = null; // 當前房間活動的怪物
+    // 修改器外掛狀態
+    let godMode = false;
 
-        // 1. 玩家設定
-        const player = {
-            x: 50,
-            y: groundY - 40,
-            w: 24,
-            h: 40,
-            vx: 0,
-            vy: 0,
-            speed: 5,
-            jumpForce: 10,
-            isGrounded: true,
-            flashlightOn: true,
-            isHiding: false
-        };
+    // 玩家設定
+    const player = {
+        x: 60, y: groundY - 40, w: 24, h: 40,
+        vx: 0, vy: 0, speed: 5, jumpForce: 10,
+        isGrounded: true, flashlightOn: true, isHiding: false
+    };
 
-        // 2. 每個房間固定的 HIDE 櫃子（無限房間都有）
-        const hideCabinet = { x: 380, y: groundY - 80, w: 50, h: 80 };
+    // 互動元件設定
+    const cabinet = { x: 380, y: groundY - 80, w: 50, h: 80, opened: false, hasCoins: true };
+    const exitDoor = { x: 740, y: groundY - 90, w: 40, h: 90 };
+    const shopKeeper = { x: 250, y: groundY - 70, w: 40, h: 70 };
 
-        // 下一個房間的門 (最右邊)
-        const nextDoor = { x: 740, y: groundY - 90, w: 40, h: 90 };
+    // 危機管理
+    let activeWarning = null; // 'carnation', 'anglerfish', 'jiji'
+    let warningTimer = 0;
+    let gosadActive = false;
+    let gosadTimer = 0; // 1分15秒 = 75秒
+    let gosadNPC = { x: 550, y: groundY - 80, w: 45, h: 80, paid: false };
 
-        // 3. 怪物範本
-        let carnation = {
-            name: '康乃馨',
-            x: -100,
-            y: groundY - 60,
-            w: 40,
-            h: 60,
-            speed: 25, // 直接極速衝撞
-            active: false
-        };
+    // 怪物運行實體
+    let activeMonsters = {
+        carnation: { x: -100, y: groundY - 60, w: 40, h: 60, speed: 24, running: false },
+        anglerfish: { x: 850, y: 120, w: 50, h: 35, speed: -4, running: false, bob: 0 },
+        jiji: { x: 850, y: groundY - 120, w: 35, h: 50, speed: -2, running: false, health: 1.5 } // 燈光照射消融血量
+    };
 
-        let anglerfish = {
-            name: '海底魚',
-            x: 850,
-            y: 120,
-            w: 50,
-            h: 35,
-            speed: -4,
-            active: false,
-            bobTimer: 0
-        };
+    // 按鍵監聽
+    const keys = {};
+    window.addEventListener('keydown', e => {
+        const key = e.key.toLowerCase();
+        keys[key] = true;
 
-        // 4. 按鍵監聽
-        const keys = {};
-        window.addEventListener('keydown', e => {
-            const key = e.key.toLowerCase();
-            keys[key] = true;
+        // [F] 開關手電筒
+        if (key === 'f' && !player.isHiding) {
+            player.flashlightOn = !player.flashlightOn;
+            document.getElementById('flashlight-state').innerText = player.flashlightOn ? "ON" : "OFF";
+            document.getElementById('flashlight-state').style.color = player.flashlightOn ? "#ffcc00" : "#666";
+        }
 
-            // F鍵：開關手電筒
-            if (key === 'f' && !player.isHiding) {
-                player.flashlightOn = !player.flashlightOn;
-                document.getElementById('flashlight-state').innerText = player.flashlightOn ? "ON" : "OFF";
-                document.getElementById('flashlight-state').style.color = player.flashlightOn ? "#ffcc00" : "#666";
-            }
-
-            // R鍵：躲藏 (靠近櫃子時)
-            if (key === 'r') {
-                let isNearCabinet = player.x + player.w/2 > hideCabinet.x && player.x + player.w/2 < hideCabinet.x + hideCabinet.w;
-                if (isNearCabinet) {
+        // [R] 躲藏櫃子 / 開櫃子拿錢
+        if (key === 'r' && currentRoom % 11 !== 0) {
+            let nearCabinet = player.x + player.w/2 > cabinet.x && player.x + player.w/2 < cabinet.x + cabinet.w;
+            if (nearCabinet) {
+                if (!cabinet.opened && !activeMonsters.carnation.running && !activeMonsters.anglerfish.running) {
+                    // 開櫃子撿金幣
+                    cabinet.opened = true;
+                    let loot = Math.floor(Math.random() * 5) + 1;
+                    coins += loot;
+                    updateUI();
+                    logStatus(`在櫃子裡搜刮到 ${loot} 枚金幣！`);
+                } else {
+                    // 進入/離開躲藏
                     player.isHiding = !player.isHiding;
                     if (player.isHiding) {
                         player.flashlightOn = false;
-                        document.getElementById('player-state').innerText = "已躲藏 (HIDE)";
-                        document.getElementById('player-state').style.color = "#00ffff";
-                        document.getElementById('flashlight-state').innerText = "OFF";
+                        logStatus("已躲藏 (HIDE)", "#00ffff");
                     } else {
-                        document.getElementById('player-state').innerText = "安全探索中";
-                        document.getElementById('player-state').style.color = "#00ff00";
+                        logStatus("探索中", "#00ff00");
                     }
                 }
             }
-        });
-        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        }
 
-        // 進入新房間的初始化
-        function enterNextRoom() {
-            currentRoom++;
-            document.getElementById('room-count').innerText = `Room ${currentRoom}`;
-            
-            // 玩家重設到左邊門口
-            player.x = 50;
-            player.y = groundY - player.h;
-            player.isHiding = false;
-            document.getElementById('player-state').innerText = "安全探索中";
-            document.getElementById('player-state').style.color = "#00ff00";
+        // [E] 購買物品 / 支付給GOSAD
+        if (key === 'e') {
+            // 安全室商店購買
+            if (currentRoom % 11 === 0) {
+                let nearShop = Math.abs((player.x + player.w/2) - (shopKeeper.x + shopKeeper.w/2)) < 60;
+                if (nearShop && coins >= 15 && !hasShield) {
+                    coins -= 15;
+                    hasShield = true;
+                    updateUI();
+                    logStatus("購買防護盾成功！可抵擋一次傷害。");
+                }
+            }
+            // 賄賂 GOSAD
+            if (gosadActive && !gosadNPC.paid) {
+                let nearGosad = Math.abs((player.x + player.w/2) - (gosadNPC.x + gosadNPC.w/2)) < 60;
+                if (nearGosad) {
+                    if (coins >= 15) {
+                        coins -= 15;
+                        gosadNPC.paid = true;
+                        gosadActive = false;
+                        document.getElementById('gosad-clock').style.display = 'none';
+                        updateUI();
+                        logStatus("已支付15金幣，GOSAD滿足地消失了。");
+                    } else {
+                        logStatus("金幣不夠！你需要15金幣！", "#ff0033");
+                    }
+                }
+            }
+        }
+    });
+    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-            // 關閉之前的突發狀態
-            warningActive = false;
-            document.getElementById('monster-warning').style.display = 'none';
-            carnation.active = false;
-            anglerfish.active = false;
-            currentMonsterInRoom = null;
+    // 房間更新與切換
+    function enterNextRoom() {
+        currentRoom++;
+        cabinet.opened = false;
+        player.x = 50;
+        player.isHiding = false;
+        
+        // 清理上房怪
+        activeWarning = null;
+        document.getElementById('warn-msg').style.display = 'none';
+        Object.keys(activeMonsters).forEach(k => activeMonsters[k].running = false);
 
-            // 【核心觸發規則】
-            // 康乃馨：每 5 個房間出現 (5, 10, 15...)
-            if (currentRoom % 5 === 0) {
-                triggerMonsterWarning('carnation');
-            } 
-            // 海底魚：每 8 個房間出現 (8, 16, 24...)
-            else if (currentRoom % 8 === 0) {
-                triggerMonsterWarning('anglerfish');
+        updateUI();
+        logStatus("探索中", "#00ff00");
+
+        // 【新房間生成規則】
+        if (currentRoom % 11 === 0) {
+            logStatus("抵達安全室，可以在商店兌換物資！", "#ffff00");
+            return; 
+        }
+
+        // 隨機機率觸發 GOSAD (20%)
+        if (Math.random() < 0.20 && !gosadActive) {
+            triggerGOSAD();
+        }
+
+        // 核心怪物觸發
+        if (currentRoom % 5 === 0) {
+            startWarning('carnation', 6.0);
+        } else if (currentRoom % 8 === 0) {
+            startWarning('anglerfish', 6.0);
+        } else if (Math.random() < 0.25) { // 隨機房間出現吉吉
+            startWarning('jiji', 3.0);
+        }
+    }
+
+    function startWarning(type, duration) {
+        activeWarning = type;
+        warningTimer = duration;
+        document.getElementById('warn-msg').style.display = 'block';
+    }
+
+    function triggerGOSAD() {
+        gosadActive = true;
+        gosadTimer = 75.0; // 1分15秒
+        gosadNPC.paid = false;
+        document.getElementById('gosad-clock').style.display = 'block';
+        logStatus("GOSAD 降臨了！他在房間盡頭向你催債！", "#ff0033");
+    }
+
+    // 核心物理與更新迴圈
+    function update() {
+        const now = performance.now();
+        const dt = (now - lastTime) / 1000;
+        lastTime = now;
+
+        // GOSAD 催債倒數
+        if (gosadActive && !gosadNPC.paid) {
+            gosadTimer -= dt;
+            document.getElementById('gosad-clock').innerText = `👻 GOSAD 催債倒數: ${Math.max(0, gosadTimer).toFixed(1)}s (近身按E付15枚)`;
+            if (gosadTimer <= 0) {
+                triggerDeath('GOSAD (時間到未能還債，被殘忍折死)');
             }
         }
 
-        function triggerMonsterWarning(type) {
-            warningActive = true;
-            warningTimer = 6.0; // 6秒倒數
-            currentMonsterInRoom = type;
-            document.getElementById('monster-warning').style.display = 'block';
+        // 常規怪物倒數計時器
+        if (activeWarning) {
+            warningTimer -= dt;
+            document.getElementById('warn-msg').innerText = `⚠️ 警告：危險在 ${Math.max(0, warningTimer).toFixed(1)} 秒後抵達！ ⚠️`;
+            if (warningTimer <= 0) {
+                let mType = activeWarning;
+                activeWarning = null;
+                document.getElementById('warn-msg').style.display = 'none';
+                // 怪物出閘
+                if (mType === 'carnation') { activeMonsters.carnation.x = -100; activeMonsters.carnation.running = true; }
+                if (mType === 'anglerfish') { activeMonsters.anglerfish.x = 850; activeMonsters.anglerfish.running = true; }
+                if (mType === 'jiji') { activeMonsters.jiji.x = 850; activeMonsters.jiji.running = true; activeMonsters.jiji.health = 1.5; }
+            }
         }
 
-        // 5. 遊戲邏輯更新
-        let lastTime = performance.now();
-        function update() {
-            const now = performance.now();
-            const dt = (now - lastTime) / 1000;
-            lastTime = now;
+        // 玩家移動
+        if (!player.isHiding) {
+            if (keys['a']) player.vx = -player.speed;
+            else if (keys['d']) player.vx = player.speed;
+            else player.vx = 0;
 
-            // 6秒倒數邏輯
-            if (warningActive) {
-                warningTimer -= dt;
-                if (warningTimer <= 0) {
-                    warningActive = false;
-                    document.getElementById('monster-warning').style.display = 'none';
-                    
-                    // 時間到，怪物正式進場衝鋒！
-                    if (currentMonsterInRoom === 'carnation') {
-                        carnation.x = -100;
-                        carnation.active = true;
-                    } else if (currentMonsterInRoom === 'anglerfish') {
-                        anglerfish.x = 850;
-                        anglerfish.active = true;
-                    }
+            if (keys[' '] && player.isGrounded) { player.vy = -player.jumpForce; player.isGrounded = false; }
+
+            player.vy += gravity; player.x += player.vx; player.y += player.vy;
+
+            if (player.y >= groundY - player.h) { player.y = groundY - player.h; player.vy = 0; player.isGrounded = true; }
+            if (player.x < 0) player.x = 0;
+
+            // 換房判定
+            if (player.x + player.w > exitDoor.x) {
+                let roomDangerous = activeMonsters.carnation.running || activeMonsters.anglerfish.running || activeMonsters.jiji.running || activeWarning || (gosadActive && !gosadNPC.paid);
+                if (roomDangerous) {
+                    player.x = exitDoor.x - player.w; // 危險時鎖門
                 } else {
-                    // 更新倒數秒數提示
-                    document.getElementById('monster-warning').innerText = `⚠️ 警告：${currentMonsterInRoom === 'carnation' ? '康乃馨' : '海底魚'}即將襲來！剩餘 ${warningTimer.toFixed(1)} 秒躲好！！ ⚠️`;
-                }
-            }
-
-            // 玩家物理與移動
-            if (!player.isHiding) {
-                if (keys['a']) player.vx = -player.speed;
-                else if (keys['d']) player.vx = player.speed;
-                else player.vx = 0;
-
-                if (keys[' '] && player.isGrounded) {
-                    player.vy = -player.jumpForce;
-                    player.isGrounded = false;
-                }
-
-                player.vy += gravity;
-                player.x += player.vx;
-                player.y += player.vy;
-
-                if (player.y >= groundY - player.h) {
-                    player.y = groundY - player.h;
-                    player.vy = 0;
-                    player.isGrounded = true;
-                }
-
-                // 邊界
-                if (player.x < 0) player.x = 0;
-                
-                // 進入下一關的判定（走到最右邊的門）
-                if (player.x + player.w > nextDoor.x) {
-                    // 如果這時候怪物還在動，硬過會死，沒怪物時才能安全通關
-                    if (carnation.active || anglerfish.active || warningActive) {
-                        player.x = nextDoor.x - player.w; // 被卡住不能走
-                    } else {
-                        enterNextRoom();
-                    }
-                }
-            } else {
-                player.vx = 0;
-                player.vy = 0;
-            }
-
-            // --- 康乃馨衝刺邏輯 ---
-            if (carnation.active) {
-                carnation.x += carnation.speed; // 極速橫掃螢幕
-                
-                // 殺戮碰撞判定
-                if (!player.isHiding) {
-                    if (player.x < carnation.x + carnation.w && player.x + player.w > carnation.x) {
-                        gameOver('康乃馨');
-                    }
-                }
-                // 衝出螢幕後消失，危機解除
-                if (carnation.x > canvas.width + 200) {
-                    carnation.active = false;
-                }
-            }
-
-            // --- 海底魚游動邏輯 ---
-            if (anglerfish.active) {
-                anglerfish.x += anglerfish.speed; // 從右往左游過來
-                anglerfish.bobTimer += 0.07;
-                anglerfish.y = 120 + Math.sin(anglerfish.bobTimer) * 40;
-
-                if (!player.isHiding) {
-                    if (player.x < anglerfish.x + anglerfish.w && player.x + player.w > anglerfish.x &&
-                        player.y < anglerfish.y + anglerfish.h && player.y + player.h > anglerfish.y) {
-                        gameOver('海底魚');
-                    }
-                }
-                if (anglerfish.x < -200) {
-                    anglerfish.active = false;
+                    enterNextRoom();
                 }
             }
         }
 
-        function gameOver(monsterName) {
-            alert(`☠️ 遊戲結束 ☠️\n你在 Room ${currentRoom} 被【${monsterName}】瞬間撕碎了！\n你沒能在 6 秒內成功 HIDE 躲好！`);
-            currentRoom = 1;
-            document.getElementById('room-count').innerText = "Room 1";
+        // --- 康乃馨運作機制 ---
+        if (activeMonsters.carnation.running) {
+            activeMonsters.carnation.x += activeMonsters.carnation.speed;
+            if (!player.isHiding && player.x < activeMonsters.carnation.x + activeMonsters.carnation.w && player.x + player.w > activeMonsters.carnation.x) {
+                triggerDeath('康乃馨');
+            }
+            if (activeMonsters.carnation.x > canvas.width + 100) activeMonsters.carnation.running = false;
+        }
+
+        // --- 海底魚運作機制 ---
+        if (activeMonsters.anglerfish.running) {
+            let m = activeMonsters.anglerfish;
+            m.x += m.speed; m.bob += 0.05; m.y = 120 + Math.sin(m.bob) * 35;
+            if (!player.isHiding && player.x < m.x + m.w && player.x + player.w > m.x && player.y < m.y + m.h && player.y + player.h > m.y) {
+                triggerDeath('海底魚');
+            }
+            if (m.x < -100) m.running = false;
+        }
+
+        // --- 吉吉 (Jiji) 核心機制：用光照他來克制 ---
+        if (activeMonsters.jiji.running) {
+            let m = activeMonsters.jiji;
+            // 判定手電筒是否直射他
+            let lightHittingJiji = player.flashlightOn && !player.isHiding && (player.x < m.x);
+            if (lightHittingJiji) {
+                m.health -= dt; // 被光照到會扣血，並停在原地掙扎
+                if (m.health <= 0) {
+                    m.running = false; // 被完全消滅
+                    logStatus("吉吉被手電筒的光強行淨化消散了！", "#00ff00");
+                }
+            } else {
+                m.x += m.speed; // 沒被光照到時，全速衝向玩家
+            }
+            if (!player.isHiding && player.x < m.x + m.w && player.x + player.w > m.x) {
+                triggerDeath('吉吉 (沒用光照住他，被正面撲殺)');
+            }
+            if (m.x < -100) m.running = false;
+        }
+    }
+
+    function triggerDeath(monsterName) {
+        if (godMode) return; // 無敵模式死不了
+        if (hasShield) {
+            hasShield = false;
+            updateUI();
+            // 給予短暫擊退抵消
             player.x = 50;
-            player.y = groundY - player.h;
-            player.isHiding = false;
-            warningActive = false;
-            carnation.active = false;
-            anglerfish.active = false;
-            document.getElementById('monster-warning').style.display = 'none';
-            document.getElementById('player-state').innerText = "安全探索中";
+            logStatus(`盾牌破裂！替你擋下了來自【${monsterName}】的致命一擊！`, "#ffcc00");
+            // 清空當前怪物
+            Object.keys(activeMonsters).forEach(k => activeMonsters[k].running = false);
+            return;
+        }
+        alert(`☠️ 遊戲結束 ☠️\n你在 Room ${currentRoom} 被【${monsterName}】秒殺！`);
+        currentRoom = 1; coins = 0; hasShield = false;
+        gosadActive = false; document.getElementById('gosad-clock').style.display = 'none';
+        enterNextRoom();
+    }
+
+    // 畫面繪製
+    function draw() {
+        ctx.fillStyle = player.flashlightOn ? '#1c1c1c' : '#080808';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 繪製路面
+        ctx.fillStyle = '#252525'; ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+        ctx.fillStyle = '#333'; ctx.fillRect(0, groundY, canvas.width, 4);
+
+        // 前後房門
+        ctx.fillStyle = '#4a3b2c'; ctx.fillRect(15, groundY - 90, 40, 90);
+        ctx.fillRect(exitDoor.x, exitDoor.y, exitDoor.w, exitDoor.h);
+        ctx.fillStyle = '#fff'; ctx.font = '11px Arial'; ctx.fillText("EXIT", exitDoor.x+6, exitDoor.y-10);
+
+        if (currentRoom % 11 === 0) {
+            // --- 安全室：渲染物資商人 ---
+            ctx.fillStyle = '#aa8833'; ctx.fillRect(shopKeeper.x, shopKeeper.y, shopKeeper.w, shopKeeper.h);
+            ctx.fillStyle = '#00ffff'; ctx.font = '12px Arial';
+            ctx.fillText(hasShield ? "售罄" : "防護盾 [E鍵/15金幣]", shopKeeper.x - 30, shopKeeper.y - 12);
+        } else {
+            // --- 普通房間：渲染 HIDE 儲物櫃 ---
+            ctx.fillStyle = cabinet.opened ? '#1a221b' : '#354a37';
+            ctx.fillRect(cabinet.x, cabinet.y, cabinet.w, cabinet.h);
+            ctx.strokeStyle = '#1e2b20'; ctx.lineWidth = 3; ctx.strokeRect(cabinet.x+5, cabinet.y+5, cabinet.w-10, cabinet.h-10);
+            ctx.fillStyle = '#fff'; ctx.font = '11px Arial';
+            ctx.fillText(cabinet.opened ? "已開櫃" : "櫃子 [R鍵 搜刮/躲藏]", cabinet.x - 20, cabinet.y - 10);
         }
 
-        // 6. 畫面繪製
-        function draw() {
-            // 背景（手電筒不影響怪物，僅影響視野亮度）
-            ctx.fillStyle = player.flashlightOn ? '#1a1a1a' : '#090909';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // --- 繪製 GOSAD NPC ---
+        if (gosadActive && !gosadNPC.paid) {
+            ctx.fillStyle = 'rgba(150, 0, 255, 0.8)'; // 紫色催債惡魔
+            ctx.fillRect(gosadNPC.x, gosadNPC.y, gosadNPC.w, gosadNPC.h);
+            ctx.fillStyle = '#ff00ff'; ctx.font = 'bold 12px Arial';
+            ctx.fillText("💰 GOSAD (按E還15金幣)", gosadNPC.x - 40, gosadNPC.y - 15);
+        }
 
-            // 地面與前後門
-            ctx.fillStyle = '#222';
-            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+        // 繪製玩家本體
+        if (!player.isHiding) {
+            ctx.fillStyle = godMode ? '#ff00ff' : '#ffffff'; // 無敵時粉色
+            ctx.fillRect(player.x, player.y, player.w, player.h);
 
-            // 繪製起點門（左）與終點通關門（右）
-            ctx.fillStyle = '#443322';
-            ctx.fillRect(10, groundY - 90, 40, 90); // 起始門
-            ctx.fillRect(nextDoor.x, nextDoor.y, nextDoor.w, nextDoor.h); // 下一關門
-            ctx.fillStyle = '#ffffaa';
-            ctx.font = '11px Arial';
-            ctx.fillText("EXIT", nextDoor.x + 6, nextDoor.y - 10);
-
-            // 繪製無限房間都有的 HIDE 櫃子
-            ctx.fillStyle = '#2e3d30'; // 鐵青色置物櫃
-            ctx.fillRect(hideCabinet.x, hideCabinet.y, hideCabinet.w, hideCabinet.h);
-            ctx.strokeStyle = '#151f16';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(hideCabinet.x + 5, hideCabinet.y + 5, hideCabinet.w - 10, hideCabinet.h - 10);
-            ctx.fillStyle = '#fff';
-            ctx.font = '12px Arial';
-            ctx.fillText("HIDE [R]", hideCabinet.x + 2, hideCabinet.y - 10);
-
-            // 繪製玩家
-            if (!player.isHiding) {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(player.x, player.y, player.w, player.h);
-
-                // 手電筒純視覺光束
-                if (player.flashlightOn) {
-                    ctx.fillStyle = 'rgba(255, 255, 200, 0.1)';
-                    ctx.beginPath();
-                    ctx.moveTo(player.x + player.w, player.y + 12);
-                    ctx.lineTo(player.x + player.w + 140, player.y - 20);
-                    ctx.lineTo(player.x + player.w + 140, player.y + 50);
-                    ctx.fill();
-                }
-            } else {
-                ctx.fillStyle = '#00ffff';
-                ctx.font = 'bold 16px Arial';
-                ctx.fillText("已隱匿", hideCabinet.x + 2, hideCabinet.y + 40);
-            }
-
-            // 繪製衝鋒的「康乃馨」
-            if (carnation.active) {
-                ctx.fillStyle = '#ff3366';
-                ctx.fillRect(carnation.x, carnation.y, carnation.w, carnation.h);
-
-                // 巨大的紅色康乃馨花狀大口
-                ctx.fillStyle = '#990022';
-                ctx.beginPath();
-                ctx.arc(carnation.x + carnation.w, carnation.y + carnation.h/2, 20, 0, Math.PI * 2);
+            // 手電筒純視覺光束（照向右方）
+            if (player.flashlightOn) {
+                let grad = ctx.createLinearGradient(player.x + player.w, player.y + 15, player.x + 350, player.y + 15);
+                grad.addColorStop(0, 'rgba(255, 255, 180, 0.25)');
+                grad.addColorStop(1, 'rgba(255, 255, 180, 0.0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath(); ctx.moveTo(player.x + player.w, player.y + 12);
+                ctx.lineTo(player.x + 400, player.y - 40); ctx.lineTo(player.x + 400, player.y + 70);
                 ctx.fill();
             }
-
-            // 繪製「海底魚」
-            if (anglerfish.active) {
-                ctx.fillStyle = '#3399ff';
-                ctx.fillRect(anglerfish.x, anglerfish.y, anglerfish.w, anglerfish.h);
-
-                // 鮟鱇發光發亮燈泡
-                ctx.fillStyle = '#ffff00';
-                ctx.beginPath();
-                ctx.arc(anglerfish.x - 10, anglerfish.y + 10, 8, 0, Math.PI * 2);
-                ctx.fill();
-            }
+        } else {
+            ctx.fillStyle = '#00ffff'; ctx.font = 'bold 14px Arial'; ctx.fillText("HIDDEN", cabinet.x + 2, cabinet.y + 40);
         }
 
-        // 7. 遊戲主迴圈
-        function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
+        // --- 繪製怪物：康乃馨 ---
+        if (activeMonsters.carnation.running) {
+            let m = activeMonsters.carnation; ctx.fillStyle = '#ff2255'; ctx.fillRect(m.x, m.y, m.w, m.h);
+            ctx.fillStyle = '#800'; ctx.beginPath(); ctx.arc(m.x + m.w, m.y + m.h/2, 18, 0, Math.PI*2); ctx.fill();
         }
 
-        gameLoop();
-    </script>
+        // --- 繪製怪物：海底魚 ---
+        if (activeMonsters.anglerfish.running) {
+            let m = activeMonsters.anglerfish; ctx.fillStyle = '#2288ff'; ctx.fillRect(m.x, m.y, m.w, m.h);
+            ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(m.x - 8, m.y + 10, 6, 0, Math.PI*2); ctx.fill();
+        }
+
+        // --- 繪製怪物：吉吉 ---
+        if (activeMonsters.jiji.running) {
+            let m = activeMonsters.jiji;
+            // 如果正在被光照，會呈現半透明且痛苦閃爍的橘紅色，否則是一團黑霧
+            let isLit = player.flashlightOn && !player.isHiding && (player.x < m.x);
+            ctx.fillStyle = isLit ? `rgba(255, 100, 0, ${0.4 + Math.random()*0.4})` : '#3a3a3a';
+            ctx.fillRect(m.x, m.y, m.w, m.h);
+            ctx.fillStyle = '#ff0000'; ctx.fillText(`吉吉(HP:${Math.max(0, m.health).toFixed(1)})`, m.x - 10, m.y - 12);
+        }
+    }
+
+    // UI 與 修改器工具函數
+    function updateUI() {
+        document.getElementById('room-count').innerText = `Room ${currentRoom}`;
+        document.getElementById('coin-count').innerText = coins;
+        document.getElementById('inv-count').innerText = hasShield ? "護盾防禦中" : "無護盾";
+        document.getElementById('inv-count').style.color = hasShield ? "#00ff00" : "#00ffff";
+    }
+
+    function logStatus(text, color = "#fff") {
+        const el = document.getElementById('player-state');
+        el.innerText = text; el.style.color = color;
+    }
+
+    // ==========================================
+    //            修改器外掛功能 (Cheats)
+    // ==========================================
+    function toggleGodMode() {
+        godMode = !godMode;
+        const btn = document.getElementById('btn-god');
+        btn.innerText = godMode ? "鎖定無敵：ON" : "鎖定無敵：OFF";
+        btn.className = godMode ? "active" : "";
+    }
+
+    function addCheatCoins() {
+        coins += 50; updateUI(); logStatus("外掛：已秘密充值 50 枚金幣！", "#ffd700");
+    }
+
+    function jumpToRoom() {
+        let val = parseInt(document.getElementById('input-room').value);
+        if (val > 0) { currentRoom = val - 1; enterNextRoom(); }
+    }
+
+    function spawnMonsterCheat(type) {
+        // 強制停止其他倒數，直接召喚實體
+        activeWarning = null;
+        document.getElementById('warn-msg').style.display = 'none';
+        if (type === 'gosad') { triggerGOSAD(); return; }
+        startWarning(type, 0.5); // 0.5秒後直接衝出
+        logStatus(`修改器：外掛強制召喚【${type}】！`);
+    }
+
+    function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+    gameLoop();
+</script>
 </body>
 </html>

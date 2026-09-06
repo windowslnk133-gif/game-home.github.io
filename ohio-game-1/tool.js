@@ -1,37 +1,41 @@
-// tool.js ─ 負責本機 MP3 音效工具與基礎公用方法
-
-// 建立 HTML5 原生音訊物件，指向你資料夾底下的 boss_musin.mp3
-const localBGM = new Audio('./boss_musin.mp3');
-localBGM.loop = true;      // 設為循環播放
-localBGM.volume = 0.3;     // 設定背景音樂音量 (30%)
-
-let sfxPlayer;
-// 保留 sfxPlayer 給櫻桃手雷的哈利路亞音效 (維持 YouTube 確保音效檔不用另外下載)
-window.onYouTubeIframeAPIReady = function() {
-    sfxPlayer = new YT.Player('sfx-player', {
-        height: '1', width: '1', videoId: '78T0coZ-b68',
-        events: { 'onReady': (e) => e.target.setVolume(80) }
-    });
-};
-
-// 封裝全域音效與視覺控制工具
-const GameTools = {
-    playBGM: function() {
-        // 原生音訊需要使用者互動後才能播放，initGame 呼叫時已符合條件
-        localBGM.play().catch(err => console.log("音樂播放被瀏覽器攔截，請確保有先點擊按鈕:", err));
+const Tool = {
+    // RWD 自適應縮放
+    resizeGame: function(wrapperElement) {
+        const baseWidth = 1000;
+        const baseHeight = 600;
+        let scale = Math.min(window.innerWidth / baseWidth, window.innerHeight / baseHeight);
+        if(scale > 1.2) scale = 1.2;
+        wrapperElement.style.transform = `translate(-50%, -50%) scale(${scale})`;
     },
-    stopBGM: function() {
-        localBGM.pause();
-        localBGM.currentTime = 0; // 重設時間軸回開頭
+
+    // 矩形碰撞檢測
+    checkCollision: function(rect1, rect2) {
+        return rect1.x < rect2.x + rect2.width &&
+               rect1.x + rect1.width > rect2.x &&
+               rect1.y < rect2.y + rect2.height &&
+               rect1.y + rect1.height > rect2.y;
     },
-    playGrenadeSFX: function() {
-        if (sfxPlayer && sfxPlayer.seekTo && sfxPlayer.playVideo) {
-            sfxPlayer.seekTo(0); sfxPlayer.playVideo();
+
+    // 彈出黃色警告訊息
+    showMsg: function(text, duration = 2000) {
+        const msg = document.getElementById("game-msg");
+        if (!msg) return;
+        msg.innerText = text;
+        msg.style.display = "block";
+        setTimeout(() => { msg.style.display = "none"; }, duration);
+    },
+
+    // 建立爆炸擊中粒子特效
+    createImpactEffect: function(particlesArray, x, y, color) {
+        for(let i=0; i<12; i++) {
+            particlesArray.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 8,
+                vy: (Math.random() - 0.5) * 8,
+                radius: Math.random() * 4 + 2,
+                color: color,
+                life: 25
+            });
         }
-    },
-    // 受傷畫面閃爍工具
-    flashElement: function(el) {
-        el.style.opacity = '0.3';
-        setTimeout(() => el.style.opacity = '1', 150);
     }
 };

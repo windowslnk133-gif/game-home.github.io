@@ -1,181 +1,286 @@
+/**
+ * Ohio Game 1 - 完整樣式表 (Master Stylesheet)
+ * 包含：全局重置、畫布發光、RWD 介面配置、工具欄霓虹效果、手機虛擬按鍵美化
+ */
+
+/* 全局底色與防止選取重置 */
 body {
     margin: 0;
     padding: 0;
-    background-color: #111;
+    background-color: #0b0114; /* 深邃的 Ohio 惡搞風紫黑底色 */
     color: #fff;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
     overflow: hidden;
+    
+    /* 徹底防止手機端長按彈出選單與文字藍色反白 */
     user-select: none;
     -webkit-user-select: none;
-    touch-action: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    
+    /* 優化行動端觸控反應速度，防止瀏覽器預設的雙擊延遲 */
+    touch-action: manipulation;
 }
+
+/* 遊戲主核心外殼（配合 tool.js 進行等比例縮放） */
 #game-wrapper {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(1);
+    transform-origin: center center;
     width: 1000px;
     height: 600px;
-    box-shadow: 0 0 30px rgba(0,0,0,0.8);
-    border: 4px solid #333;
-    background: linear-gradient(to bottom, #1a0033, #000);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.9), 0 0 20px rgba(138, 43, 226, 0.2);
+    border: 4px solid #221233;
+    background: linear-gradient(to bottom, #140026, #05000d);
     overflow: hidden;
+    box-sizing: border-box;
 }
+
+/* 遊戲 Canvas 畫布配置 */
 canvas {
     display: block;
     background: transparent;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
 }
+
+/* 全局頂部 UI 圖層 */
 #ui-layer {
     position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
+    top: 15px;
+    left: 15px;
+    right: 15px;
     display: flex;
     justify-content: space-between;
-    pointer-events: none;
+    pointer-events: none; /* 讓點擊事件可以穿透 UI，不影響遊戲操作 */
     font-weight: bold;
     font-size: 18px;
-    text-shadow: 2px 2px 2px #000;
+    text-shadow: 2px 2px 4px #000, -1px -1px 0 #000;
+    z-index: 3;
 }
+
+/* 血條外框框容器 */
 .hp-bar-container {
-    width: 250px;
-    background-color: #444;
+    width: 260px;
+    background-color: #222;
     border: 2px solid #fff;
-    height: 20px;
-    border-radius: 5px;
+    height: 18px;
+    border-radius: 4px;
     overflow: hidden;
-    margin-top: 5px;
+    margin-top: 6px;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
 }
+
+/* 玩家血條（紅色發光） */
 #player-hp-bar {
     width: 100%;
     height: 100%;
-    background-color: #ff3333;
-    transition: width 0.1s;
+    background: linear-gradient(to right, #ff2a2a, #b30000);
+    box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.4);
+    transition: width 0.15s ease-out;
 }
+
+/* Boss 資訊面板控制 */
 #boss-ui {
     display: none;
     text-align: right;
 }
+
+/* Boss 血條（微軟/Ohio 迷幻紫色發光） */
 #boss-hp-bar {
     width: 100%;
     height: 100%;
-    background-color: #cc00ff;
-    transition: width 0.1s;
+    background: linear-gradient(to right, #da70d6, #8a2be2);
+    box-shadow: inset 0 0 6px rgba(255, 255, 255, 0.4);
+    transition: width 0.1s ease-out;
 }
+
+/* 下方道具快捷欄 (Hotbar) */
 #hotbar {
     position: absolute;
-    bottom: 120px;
+    bottom: 120px; /* 留出底部給虛擬按鍵的黃金空間 */
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 10px;
-    background: rgba(0,0,0,0.6);
-    padding: 8px;
-    border-radius: 10px;
-    border: 2px solid #555;
-    z-index: 5;
+    gap: 12px;
+    background: rgba(10, 3, 20, 0.75);
+    padding: 8px 12px;
+    border-radius: 12px;
+    border: 2px solid #442566;
+    backdrop-filter: blur(4px); /* 摩砂玻璃特效 */
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 4;
 }
+
+/* 工具欄單格外框 */
 .slot {
-    width: 65px;
-    height: 65px;
-    border: 3px solid #777;
-    background: #222;
-    border-radius: 8px;
+    width: 68px;
+    height: 68px;
+    border: 3px solid #5a3880;
+    background: rgba(30, 15, 45, 0.9);
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     font-size: 11px;
+    color: #ddd;
     text-align: center;
     position: relative;
     cursor: pointer;
+    transition: all 0.2s ease;
 }
+
+/* 工具欄被選中（1, 2, 3）時的青色發光效果 */
 .slot.active {
     border-color: #00ffcc;
-    box-shadow: 0 0 10px #00ffcc;
+    color: #fff;
+    background: rgba(0, 40, 35, 0.8);
+    box-shadow: 0 0 15px rgba(0, 255, 204, 0.5), inset 0 0 8px rgba(0, 255, 204, 0.2);
+    transform: scale(1.05);
 }
+
+/* 快捷鍵小數字 */
 .slot .key-num {
     position: absolute;
-    top: 2px;
-    left: 5px;
-    color: #aaa;
+    top: 3px;
+    left: 6px;
+    color: #8a73a6;
     font-size: 10px;
 }
+
+/* 倒數冷卻文字提示 */
 .slot .cooldown {
     position: absolute;
-    bottom: 2px;
-    color: #ff3333;
+    bottom: 3px;
+    color: #ff3b3b;
     font-weight: bold;
+    font-size: 11px;
+    text-shadow: 1px 1px 2px #000;
 }
+
+/* 手機版虛擬按鍵面板配置 */
 #mobile-controls {
     position: absolute;
-    bottom: 10px;
+    bottom: 12px;
     left: 0;
     width: 100%;
-    height: 100px;
+    height: 95px;
     display: flex;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 25px;
     box-sizing: border-box;
-    z-index: 5;
+    z-index: 4;
 }
+
+/* 左側移動組與右側技能組外框 */
 .btn-group {
     display: flex;
-    gap: 15px;
+    gap: 18px;
     align-items: center;
 }
+
+/* 行動端圓形方向/功能按鈕 */
 .v-btn {
-    width: 75px;
-    height: 75px;
-    background: rgba(255, 255, 255, 0.2);
-    border: 3px solid rgba(255, 255, 255, 0.6);
+    width: 76px;
+    height: 76px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 3px solid rgba(255, 255, 255, 0.45);
     border-radius: 50%;
-    color: white;
+    color: #fff;
     font-size: 24px;
     font-weight: bold;
     display: flex;
     align-items: center;
     justify-content: center;
-    user-select: none;
-    -webkit-user-select: none;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    transition: background 0.1s, transform 0.05s;
+    cursor: pointer;
 }
+
+/* 按鈕按下去時的微軟科技青反饋 */
 .v-btn:active {
-    background: rgba(0, 255, 204, 0.5);
+    background: rgba(0, 255, 204, 0.4);
     border-color: #00ffcc;
+    transform: scale(0.92);
+    box-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
 }
+
+/* 中央震撼彈出訊息（如：吃了老乾媽醫療包） */
+#game-msg {
+    position: absolute;
+    top: 33%;
+    width: 100%;
+    text-align: center;
+    font-size: 30px;
+    color: #ffff00;
+    font-weight: bold;
+    text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 3px -1px 0 #000, -1px 3px 0 #000;
+    display: none;
+    pointer-events: none;
+    z-index: 5;
+    animation: pulseMsg 0.2s ease-out;
+}
+
+/* 全螢幕覆蓋層（主選單與死亡結算畫面） */
 #overlay {
     position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.85);
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(7, 2, 13, 0.9);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     z-index: 10;
     text-align: center;
+    box-sizing: border-box;
 }
+
+/* 霓虹主標題樣式 */
+#overlay h1 {
+    margin: 0 0 10px 0;
+    font-size: 46px;
+    text-shadow: 0 0 15px rgba(255, 51, 51, 0.6);
+}
+
+/* 亮黃色副標題 */
+#overlay h2 {
+    color: #ffff00;
+    margin: 0 0 20px 0;
+    font-size: 22px;
+}
+
+/* 專案通用功能大按鈕 */
 .menu-btn {
-    background: #00ffcc;
-    color: #000;
+    background: linear-gradient(135deg, #00ffcc, #00cc99);
+    color: #050c0a;
     border: none;
-    padding: 12px 30px;
-    font-size: 20px;
+    padding: 14px 34px;
+    font-size: 19px;
     font-weight: bold;
     cursor: pointer;
-    border-radius: 5px;
-    margin-top: 20px;
+    border-radius: 30px;
+    margin-top: 15px;
+    box-shadow: 0 5px 15px rgba(0, 255, 204, 0.3);
+    transition: all 0.2s ease;
 }
-.menu-btn:hover { background: #00cc99; }
-#game-msg {
-    position: absolute;
-    top: 35%;
-    width: 100%;
-    text-align: center;
-    font-size: 32px;
-    color: #ffff00;
-    font-weight: bold;
-    text-shadow: 3px 3px 0 #000;
-    display: none;
-    pointer-events: none;
-    z-index: 6;
+
+/* 按鈕懸停與觸碰反饋 */
+.menu-btn:hover, .menu-btn:active {
+    background: linear-gradient(135deg, #00ffff, #00ffcc);
+    box-shadow: 0 5px 20px rgba(0, 255, 204, 0.6);
+    transform: translateY(-2px);
+}
+
+/* 訊息彈出微顫抖動畫 */
+@keyframes pulseMsg {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
 }

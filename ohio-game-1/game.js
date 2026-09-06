@@ -211,11 +211,12 @@ function endGame(isWin) {
     const sub = document.getElementById("end-sub");
     
     overlay.style.display = "flex";
-    if (isWin) {
-        title.innerText = "🏆 YOU WIN!"; title.style.color = "#00ffcc";
-        sub.innerText = `${OhioData.getLoginUser()} 成功用鍵盤終結了 Ohio 巨鴨的統治！`;
-    } else {
-        title.innerText = "💀 GAME OVER"; title.style.color = "#ff3333";
-        sub.innerText = "大鴨鴨太強了，你被無情扣血制裁。";
-    }
+// 請在 game.js 的 endGame(isWin) 中找到這段並替換：
+if (isWin) {
+    title.innerText = "🏆 YOU WIN!"; title.style.color = "#00ffcc";
+    sub.innerText = `${OhioData.getLoginUser()} 成功用鍵盤終結了M巨鴨 🦆 的統治！`;
+} else {
+    title.innerText = "💀 GAME OVER"; title.style.color = "#ff3333";
+    sub.innerText = "綠頭鴨太強了，你被無情扣血制裁。";
 }
+

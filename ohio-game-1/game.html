@@ -46,15 +46,17 @@
             <div class="v-btn" id="btn-right">D</div>
         </div>
         <div class="btn-group">
-            <div class="v-btn" id="btn-defend" style="background: rgba(0, 150, 255, 0.2); width: 85px; height: 85px; font-size: 16px;">防禦/副武</div>
-            <div class="v-btn" id="btn-jump" style="width: 85px; height: 85px;">跳</div>
+            <!-- 新增的獨立 E 按鈕，用來丟手雷 -->
+            <div class="v-btn" id="btn-grenade-e" style="background: rgba(255, 170, 0, 0.25); border-color: #ffaa00; width: 75px; height: 75px;">E</div>
+            <div class="v-btn" id="btn-defend" style="background: rgba(0, 150, 255, 0.2); width: 80px; height: 80px; font-size: 15px;">防疫盾</div>
+            <div class="v-btn" id="btn-jump" style="width: 80px; height: 80px;">跳</div>
         </div>
     </div>
 
     <!-- 震撼彈出訊息文字區 -->
     <div id="game-msg"></div>
 
-    <!-- 遊戲結束/結算畫面彈窗 (初始隱藏) -->
+    <!-- 遊戲結束/結算畫面彈窗 -->
     <div id="overlay" style="display: none;">
         <h1 id="end-title" style="font-size: 50px; margin-bottom: 5px;"></h1>
         <h2 id="end-sub" style="margin-top:0;"></h2>
@@ -64,9 +66,9 @@
 </div>
 
 <!-- 專案音效儲存區 -->
-<audio id="bossMusic" src="./boss_musin.mp3" loop></audio>
+<audio id="bossMusic" src="./boss_music.mp3" loop></audio>
 
-<!-- 模組化底層 JavaScript 載入鏈（嚴格限制依賴順序） -->
+<!-- 模組化底層 JavaScript 載入鏈 -->
 <script src="data.js"></script>
 <script src="tool.js"></script>
 <script src="player.js"></script>

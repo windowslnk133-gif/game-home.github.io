@@ -116,16 +116,18 @@ function updateGame1Logic() {
         if(shockDamage > 0) damagePlayer(shockDamage);
 
         // 【自動攻擊】手持鍵盤且在攻擊範圍內時
-        if (currentSlot === 1) {
-            let hitRange = 160;
-            if (player.x < boss.x && (boss.x - player.x) < hitRange && Math.abs(player.y - boss.y) < 250) {
-                autoAttackTimer++;
-                if (autoAttackTimer % 12 === 0) {
-                    damageBoss(85, "⌨️ 鍵盤自動瘋狂暴擊！");
-                    Tool.createImpactEffect(particles, boss.x + 20, player.y + 20, "#00ffcc");
-                }
-            } else { autoAttackTimer = 0; }
+// 請在 game1.js 的 updateGame1Logic() 中找到這段並替換：
+if (currentSlot === 1) {
+    let hitRange = 160;
+    if (player.x < boss.x && (boss.x - player.x) < hitRange && Math.abs(player.y - boss.y) < 250) {
+        autoAttackTimer++;
+        if (autoAttackTimer % 12 === 0) {
+            damageBoss(85, "⌨️ 鍵盤瘋狂暴擊 🦆 綠頭鴨！"); // 加上 🦆 符號
+            Tool.createImpactEffect(particles, boss.x + 20, player.y + 20, "#1e4d2b"); // 擊中特效改為微軟綠
         }
+    } else { autoAttackTimer = 0; }
+}
+
 
         // 更新掉落補給與炸彈
         items.forEach((item, idx) => {

@@ -1,199 +1,221 @@
-// game.js ─ 主核心控制大腦
-const stageEl = document.getElementById('game-stage');
-const pEl = document.getElementById('player');
-const bEl = document.getElementById('boss');
-const pHpBar = document.getElementById('player-hp-bar');
-const pHpText = document.getElementById('player-hp-text');
-const bHpBar = document.getElementById('boss-hp-bar');
-const bHpText = document.getElementById('boss-hp-text');
-const cdTextEl = document.getElementById('cd-text');
-const overlayEl = document.getElementById('overlay');
-const overlayTitleEl = document.getElementById('overlay-title');
-const overlayDescEl = document.getElementById('overlay-desc');
-const startBtnEl = document.getElementById('start-btn');
+// 全局遊戲核心變數
+const wrapper = document.getElementById("game-wrapper");
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const bossMusic = document.getElementById("bossMusic");
 
-let playerHp = 100;
-let bossHp = 23100;
-let isPlayingG = false;
+let gameState = "START";
+let keys = {};
+let platforms = [];
+let keyItem = {};
+let door = {};
+let items = [];
+let projectiles = [];
+let bossAttacks = [];
+let particles = [];
 
-let playerX = 100;
-let playerY = 0; 
-let playerVelocityY = 0;
-let isGrounded = true;
-const gravity = 0.6;
-const jumpForce = 14;
-const moveSpeed = 6;
+let currentSlot = 1;
+let autoAttackTimer = 0;
+let grenadeCooldown = 0;
+let shieldCooldown = 0;
+let shieldActiveTime = 0;
 
-let grenades = [];
-let isGrenadeReady = true;
-const grenadeCD = 8000;
+// 實例化玩家，Boss 留給關卡初始化
+const player = new Player();
+let boss = null;
 
-let keys = { a: false, d: false, space: false, e: false };
-let animationId;
-let bossActionTimer = 0;
-let medkitTimer = 0;
-let currentMedkit = null;
+// 自動依螢幕調整大小
+window.addEventListener("resize", () => Tool.resizeGame(wrapper));
+Tool.resizeGame(wrapper);
 
-// 提供給 boss.js 隨時獲取最新玩家數據狀態的方法
-function getGameState() {
-    return { isPlaying: isPlayingG, playerX: playerX, playerY: playerY };
-}
-
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'a' || e.key === 'A') keys.a = true;
-    if (e.key === 'd' || e.key === 'D') keys.d = true;
-    if (e.code === 'Space') { keys.space = true; e.preventDefault(); }
-    if (e.key === 'e' || e.key === 'E') {
-        if (!keys.e && isGrenadeReady && isPlayingG) throwGrenade();
-        keys.e = true;
-    }
-});
-window.addEventListener('keyup', (e) => {
-    if (e.key === 'a' || e.key === 'A') keys.a = false;
-    if (e.key === 'd' || e.key === 'D') keys.d = false;
-    if (e.code === 'Space') keys.space = false;
-    if (e.key === 'e' || e.key === 'E') keys.e = false;
-});
-
-function initGame() {
-    playerHp = 100; bossHp = 23100; playerX = 100; playerY = 0; playerVelocityY = 0;
-    isGrounded = true; bossActionTimer = 0; medkitTimer = 0; isGrenadeReady = true;
-    cdTextEl.textContent = "準備就緒"; cdTextEl.style.color = "#00ffcc";
-
-    if (currentMedkit) { currentMedkit.remove(); currentMedkit = null; }
-    grenades.forEach(g => g.el.remove()); grenades = [];
-    BossSkills.hideAll(); updateHpUI();
-
-    pEl.style.left = playerX + 'px'; pEl.style.bottom = '40px';
-    bEl.style.bottom = '40px'; bEl.style.transform = 'scale(1)';
-
-    GameTools.playBGM();
-
-    if (animationId) cancelAnimationFrame(animationId);
-    isPlayingG = true;
-    gameLoop();
-}
-
-function updateHpUI() {
-    pHpBar.style.width = (playerHp / 100) * 100 + '%';
-    pHpText.textContent = `${playerHp} / 100`;
-    bHpBar.style.width = (bossHp / 23100) * 100 + '%';
-    bHpText.textContent = `${Math.floor(bossHp)} / 23100`;
-}
-
-function throwGrenade() {
-    isGrenadeReady = false;
-    let cdTime = grenadeCD / 1000;
-    cdTextEl.textContent = `${cdTime}s`; cdTextEl.style.color = "#ff3333";
-
-    let cdInterval = setInterval(() => {
-        cdTime--;
-        if (cdTime <= 0) {
-            clearInterval(cdInterval); isGrenadeReady = true;
-            cdTextEl.textContent = "準備就緒"; cdTextEl.style.color = "#00ffcc";
-        } else { cdTextEl.textContent = `${cdTime}s`; }
-    }, 1000);
-
-    const el = document.createElement('div');
-    el.classList.add('grenade'); el.textContent = '🍒';
-    stageEl.appendChild(el);
-    grenades.push({ el: el, x: playerX + 20, y: playerY + 40, vx: 8, vy: 12, gravity: 0.5 });
-}
-
+// 核心主迴圈
 function gameLoop() {
-    if (!isPlayingG) return;
+    updateEngine();
+    renderEngine();
+    if (gameState !== "GAMEOVER" && gameState !== "WIN") {
+        requestAnimationFrame(gameLoop);
+    }
+}
 
-    if (keys.a) playerX = Math.max(0, playerX - moveSpeed);
-    if (keys.d) playerX = Math.min(stageEl.clientWidth - 50, playerX + moveSpeed);
-    if (keys.space && isGrounded) { playerVelocityY = jumpForce; isGrounded = false; }
+// 核心物理與冷卻引擎更新
+function updateEngine() {
+    // 處理冷卻時間
+    if (grenadeCooldown > 0) grenadeCooldown -= 1000/60;
+    if (shieldActiveTime > 0) shieldActiveTime -= 1000/60;
+    if (shieldCooldown > 0) shieldCooldown -= 1000/60;
+    
+    // 更新冷卻 UI
+    document.getElementById("cd-grenade").innerText = grenadeCooldown > 0 ? (grenadeCooldown/1000).toFixed(1) + "s" : "";
+    document.getElementById("shield-status").innerText = shieldActiveTime > 0 ? `【🛡️ 盾: ${(shieldActiveTime/1000).toFixed(1)}s】` : "";
+    
+    if (shieldCooldown > 0) {
+        let displayCd = (shieldCooldown / 1000) - 8;
+        document.getElementById("cd-shield").innerText = displayCd > 0 ? displayCd.toFixed(1) + "s" : (shieldActiveTime > 0 ? "使用中" : "");
+    } else { document.getElementById("cd-shield").innerText = ""; }
 
-    playerVelocityY -= gravity; playerY += playerVelocityY;
-    if (playerY <= 0) { playerY = 0; playerVelocityY = 0; isGrounded = true; }
+    // 玩家位移與平台碰撞
+    player.update(keys, platforms);
 
-    pEl.style.left = playerX + 'px'; pEl.style.bottom = (40 + playerY) + 'px';
+    // 呼叫由 game1.js 處理的特定關卡邏輯
+    if (typeof updateGame1Logic === "function") {
+        updateGame1Logic();
+    }
 
-    // 鍵盤近戰敲擊
-    const playerRect = pEl.getBoundingClientRect();
-    const bossRect = bEl.getBoundingClientRect();
-    if (playerRect.right >= bossRect.left - 40 && playerRect.left <= bossRect.right) {
-        pEl.classList.add('attacking');
-        bossHp = Math.max(0, bossHp - (32 / 5)); updateHpUI();
-        if (bossHp <= 0) { gameOver(true); return; }
-    } else { pEl.classList.remove('attacking'); }
-
-    // 手雷物理更新
-    for (let i = grenades.length - 1; i >= 0; i--) {
-        let g = grenades[i]; g.x += g.vx; g.vy -= g.gravity; g.y += g.vy;
-        g.el.style.left = g.x + 'px'; g.el.style.bottom = (40 + g.y) + 'px';
-        if (g.y <= 0 || g.x >= stageEl.clientWidth - 30) {
-            triggerGrenadeExplosion(g.x, 0); g.el.remove(); grenades.splice(i, 1);
+    // 更新武器投擲物 (手雷、自動炸彈)
+    projectiles.forEach((proj, idx) => {
+        if (proj.type === "GRENADE") {
+            proj.x += proj.vx; proj.vy += 0.3; proj.y += proj.vy;
+            if (boss && Tool.checkCollision(proj, boss)) {
+                damageBoss(100, "💣 神聖手雷炸裂！");
+                Tool.createImpactEffect(particles, proj.x, proj.y, "#ffff00");
+                projectiles.splice(idx, 1);
+            } else if (proj.y > 550) projectiles.splice(idx, 1);
+        } else if (proj.type === "AUTO_BOMB") {
+            if (boss) {
+                let dx = (boss.x + boss.width/2) - proj.x;
+                let dy = (boss.y + boss.height/2) - proj.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist > 5) { proj.x += (dx / dist) * 12; proj.y += (dy / dist) * 12; }
+                if (Tool.checkCollision(proj, boss)) {
+                    damageBoss(350, "💥 自動引爆空投炸彈！");
+                    Tool.createImpactEffect(particles, proj.x, proj.y, "#ff3300");
+                    projectiles.splice(idx, 1);
+                }
+            }
         }
-    }
+    });
 
-    // 隨機補血醫療包
-    medkitTimer++;
-    if (medkitTimer % 350 === 0 && !currentMedkit) spawnMedkit();
-    if (currentMedkit) {
-        const medRect = currentMedkit.getBoundingClientRect();
-        if (playerRect.right > medRect.left && playerRect.left < medRect.right && playerY < 40) {
-            playerHp = Math.min(100, playerHp + 50); updateHpUI();
-            currentMedkit.remove(); currentMedkit = null;
+    // 更新 Boss 技能預警區與判定
+    bossAttacks.forEach((atk, idx) => {
+        if (atk.type === "METEOR") {
+            atk.timer--;
+            if (atk.timer <= 0) {
+                atk.y += 11;
+                if (atk.y >= 530) {
+                    if (Math.abs(player.x - atk.x) < 80 && player.y > 440) damagePlayer(25);
+                    bossAttacks.splice(idx, 1);
+                }
+            }
+        } else if (atk.type === "SPIKES") {
+            atk.timer--;
+            if (atk.timer < 120 && atk.timer > 0 && player.y >= 500) damagePlayer(2);
+            if (atk.timer <= 0) bossAttacks.splice(idx, 1);
         }
-    }
+    });
 
-    // Boss 招式排程計時器
-    bossActionTimer++;
-    if (bossActionTimer === 120) {
-        let rand = Math.random();
-        const resetTimer = () => { bossActionTimer = 0; };
+    // 掉落虛空判定
+    if (player.y > 600) damagePlayer(100);
 
-        if (rand < 0.4) BossSkills.castSpikes(getGameState, takeDamage, resetTimer);
-        else if (rand < 0.75) BossSkills.castSlam(getGameState, takeDamage, resetTimer);
-        else BossSkills.castMeteor(getGameState, takeDamage, resetTimer);
-    }
-
-    animationId = requestAnimationFrame(gameLoop);
-}
-
-function triggerGrenadeExplosion(x, y) {
-    GameTools.playGrenadeSFX();
-    const wave = document.createElement('div');
-    wave.classList.add('explosion-wave');
-    wave.style.left = (x - 60) + 'px'; wave.style.bottom = (40 + y - 60) + 'px';
-    stageEl.appendChild(wave);
-    setTimeout(() => wave.remove(), 400);
-
-    if (x + 90 >= (stageEl.clientWidth - 220)) {
-        bossHp = Math.max(0, bossHp - 1000); updateHpUI();
-        bEl.style.transform = 'translateX(25px) scale(0.9)';
-        setTimeout(() => bEl.style.transform = 'scale(1)', 200);
-        if (bossHp <= 0) gameOver(true);
+    // 刷新頂部 UI 數值
+    document.getElementById("player-hp-text").innerText = Math.ceil(player.hp);
+    document.getElementById("player-hp-bar").style.width = (player.hp / player.maxHp) * 100 + "%";
+    if (boss) {
+        document.getElementById("boss-hp-text").innerText = boss.hp;
+        document.getElementById("boss-hp-bar").style.width = (boss.hp / boss.maxHp) * 100 + "%";
     }
 }
 
-function takeDamage(amount) {
-    playerHp = Math.max(0, playerHp - amount); updateHpUI();
-    GameTools.flashElement(pEl);
-    if (playerHp <= 0) gameOver(false);
+// 核心渲染引擎
+function renderEngine() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 繪製平台
+    platforms.forEach(p => {
+        ctx.fillStyle = (gameState === "BOSS" && p.y === 550) ? "#222" : "#555";
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+        ctx.strokeStyle = "#888"; ctx.strokeRect(p.x, p.y, p.width, p.height);
+    });
+
+    // 呼叫由 game1.js 處理的關卡專屬物件渲染 (鑰匙和大門)
+    if (typeof renderGame1Objects === "function") {
+        renderGame1Objects(ctx);
+    }
+
+    // 繪製 Boss 技能效果
+    bossAttacks.forEach(atk => {
+        if (atk.type === "METEOR") {
+            ctx.fillStyle = "rgba(255, 0, 0, 0.4)"; ctx.fillRect(atk.x - 40, 540, 80, 10);
+            if (atk.timer <= 0) { ctx.fillStyle = "#ff6600"; ctx.beginPath(); ctx.arc(atk.x, atk.y, 20, 0, Math.PI*2); ctx.fill(); }
+        } else if (atk.type === "SPIKES") {
+            if (atk.timer > 120) {
+                ctx.fillStyle = "rgba(255, 0, 0, 0.3)"; ctx.fillRect(0, 530, 1000, 20);
+            } else {
+                ctx.fillStyle = "#990000";
+                for(let i=0; i<1000; i+=20) {
+                    ctx.beginPath(); ctx.moveTo(i, 550); ctx.lineTo(i+10, 510); ctx.lineTo(i+20, 550); ctx.fill();
+                }
+            }
+        }
+    });
+
+    // 繪製掉落道具
+    items.forEach(item => {
+        ctx.fillStyle = item.type === "MEDKIT" ? "#00ff00" : "#ffaa00";
+        ctx.fillRect(item.x, item.y, item.width, item.height);
+        ctx.fillStyle = item.type === "MEDKIT" ? "#fff" : "#000";
+        ctx.font = "11px Arial"; ctx.fillText(item.type === "MEDKIT" ? "➕醫" : "💣炸", item.x - 1, item.y + 16);
+    });
+
+    // 繪製拋物武器
+    projectiles.forEach(proj => {
+        ctx.fillStyle = proj.type === "GRENADE" ? "#ffff00" : "#ff3300";
+        ctx.beginPath(); ctx.arc(proj.x, proj.y, proj.width/2, 0, Math.PI*2); ctx.fill();
+    });
+
+    // 繪製爆炸粒子
+    particles.forEach((p, idx) => {
+        p.x += p.vx; p.y += p.vy; p.life--;
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.life / 25;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fill();
+        ctx.globalAlpha = 1;
+        if(p.life <= 0) particles.splice(idx, 1);
+    });
+
+    // 渲染 Boss 與玩家
+    if (gameState === "BOSS" && boss) boss.draw(ctx);
+    player.draw(ctx, currentSlot, gameState, autoAttackTimer);
+
+    // 防疫盾無敵特效圈
+    if (shieldActiveTime > 0) {
+        ctx.strokeStyle = "rgba(0, 255, 204, 0.6)"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(player.x + player.width/2, player.y + player.height/2, 45, 0, Math.PI*2); ctx.stroke();
+    }
 }
 
-function spawnMedkit() {
-    currentMedkit = document.createElement('div'); currentMedkit.classList.add('medkit'); currentMedkit.textContent = '💊';
-    currentMedkit.style.left = (Math.random() * (stageEl.clientWidth * 0.6)) + 'px';
-    stageEl.appendChild(currentMedkit);
-    setTimeout(() => { if (currentMedkit) { currentMedkit.remove(); currentMedkit = null; } }, 8000);
+// 傷害結算機制
+function damageBoss(amount, label) {
+    if (!boss) return;
+    boss.hp -= amount;
+    if(boss.hp <= 0) {
+        boss.hp = 0;
+        gameState = "WIN";
+        endGame(true);
+    }
+    document.getElementById("boss-action").innerText = `${label} -${amount}`;
 }
 
-function gameOver(isWin) {
-    isPlayingG = false; if (animationId) cancelAnimationFrame(animationId);
-    pEl.classList.remove('attacking'); GameTools.stopBGM();
-    if (isWin) showOverlay("🏆 史詩級勝利！", "你成功用鍵盤與櫻桃手雷砸碎了 23,100 HP 的俄亥俄巨鴨！", "再戰一次");
-    else showOverlay("💀 你被無情超渡了", "在 888 傷害隕石下，你的鍵盤碎了一地...", "復活重來");
+function damagePlayer(amount) {
+    if (shieldActiveTime > 0) return; // 無敵盾生效
+    player.hp -= amount;
+    if (player.hp <= 0) {
+        player.hp = 0;
+        gameState = "GAMEOVER";
+        endGame(false);
+    }
 }
 
-function showOverlay(title, desc, btnText) {
-    overlayTitleEl.textContent = title; overlayDescEl.textContent = desc; startBtnEl.textContent = btnText;
-    overlayEl.style.display = 'flex';
+function endGame(isWin) {
+    bossMusic.pause();
+    const overlay = document.getElementById("overlay");
+    const title = document.getElementById("end-title");
+    const sub = document.getElementById("end-sub");
+    
+    overlay.style.display = "flex";
+    if (isWin) {
+        title.innerText = "🏆 YOU WIN!"; title.style.color = "#00ffcc";
+        sub.innerText = `${OhioData.getLoginUser()} 成功用鍵盤終結了 Ohio 巨鴨的統治！`;
+    } else {
+        title.innerText = "💀 GAME OVER"; title.style.color = "#ff3333";
+        sub.innerText = "大鴨鴨太強了，你被無情扣血制裁。";
+    }
 }
-
-startBtnEl.addEventListener('click', () => { overlayEl.style.display = 'none'; initGame(); });

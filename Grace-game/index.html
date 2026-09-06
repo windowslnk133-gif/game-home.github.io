@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grace 2D Side-Scroller</title>
+    <title>Grace & Doors Style: Room Runner</title>
     <style>
         body {
             margin: 0;
@@ -16,7 +16,7 @@
             align-items: center;
             height: 100vh;
         }
-        /* 頂部工作欄 / 狀態提示 */
+        /* 頂部工作欄 */
         #status-bar {
             width: 800px;
             background: #111;
@@ -30,9 +30,21 @@
             font-size: 14px;
         }
         canvas {
-            background-color: #1a1a1a;
+            background-color: #151515;
             border: 2px solid #333;
             box-shadow: 0 0 30px rgba(0,0,0,0.9);
+        }
+        /* 恐怖襲來倒數警告 */
+        #monster-warning {
+            position: absolute;
+            top: 150px;
+            color: #ff0033;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #000;
+            display: none;
+            pointer-events: none;
+            letter-spacing: 2px;
         }
     </style>
 </head>
@@ -40,10 +52,12 @@
 
     <!-- 工作欄 -->
     <div id="status-bar">
-        <div>【狀態】<span id="player-state">正常探索中</span></div>
+        <div>【目前房間】<span id="room-count" style="color: #fff; font-weight: bold;">Room 1</span></div>
+        <div>【狀態】<span id="player-state">安全探索中</span></div>
         <div>【手電筒】<span id="flashlight-state" style="color: #ffcc00;">ON</span> [F鍵切換]</div>
-        <div>【操作】A D 移動 | 空白鍵 跳躍 | R 鍵 躲藏(HIDE)</div>
     </div>
+
+    <div id="monster-warning">⚠️ 偵測到危險！在 6 秒內躲好！！ ⚠️</div>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -54,60 +68,57 @@
         canvas.width = 800;
         canvas.height = 400;
 
-        // 遊戲基礎物理設定
         const gravity = 0.5;
         const groundY = 320;
 
+        // 遊戲全局變數
+        let currentRoom = 1;
+        let warningTimer = 0; // 倒數計時（秒）
+        let warningActive = false;
+        let currentMonsterInRoom = null; // 當前房間活動的怪物
+
         // 1. 玩家設定
         const player = {
-            x: 100,
+            x: 50,
             y: groundY - 40,
             w: 24,
             h: 40,
             vx: 0,
             vy: 0,
-            speed: 4,
+            speed: 5,
             jumpForce: 10,
             isGrounded: true,
             flashlightOn: true,
             isHiding: false
         };
 
-        // 2. 躲藏點 (HIDE 櫃子)
-        const hidingSpots = [
-            { x: 300, y: groundY - 70, w: 40, h: 70 },
-            { x: 600, y: groundY - 70, w: 40, h: 70 }
-        ];
+        // 2. 每個房間固定的 HIDE 櫃子（無限房間都有）
+        const hideCabinet = { x: 380, y: groundY - 80, w: 50, h: 80 };
 
-        // 3. 怪物設定
-        const monsters = [
-            {
-                name: '康乃馨',
-                type: 'carnation',
-                x: 700,
-                y: groundY - 50,
-                w: 30,
-                h: 50,
-                vx: -1.5,
-                baseSpeed: 1.5,
-                chaseSpeed: 4.5,
-                color: '#ff4466',
-                state: 'patrol' // patrol, chase
-            },
-            {
-                name: '海底魚',
-                type: 'anglerfish',
-                x: 400,
-                y: 100,
-                w: 45,
-                h: 30,
-                vx: 1,
-                vy: 0.5,
-                baseSpeed: 1,
-                color: '#33ccff',
-                bobTimer: 0 // 用於上下漂浮
-            }
-        ];
+        // 下一個房間的門 (最右邊)
+        const nextDoor = { x: 740, y: groundY - 90, w: 40, h: 90 };
+
+        // 3. 怪物範本
+        let carnation = {
+            name: '康乃馨',
+            x: -100,
+            y: groundY - 60,
+            w: 40,
+            h: 60,
+            speed: 25, // 直接極速衝撞
+            active: false
+        };
+
+        let anglerfish = {
+            name: '海底魚',
+            x: 850,
+            y: 120,
+            w: 50,
+            h: 35,
+            speed: -4,
+            active: false,
+            bobTimer: 0
+        };
 
         // 4. 按鍵監聽
         const keys = {};
@@ -115,28 +126,25 @@
             const key = e.key.toLowerCase();
             keys[key] = true;
 
-            // F 鍵：切換手電筒 (只有在沒躲藏時有用)
+            // F鍵：開關手電筒
             if (key === 'f' && !player.isHiding) {
                 player.flashlightOn = !player.flashlightOn;
                 document.getElementById('flashlight-state').innerText = player.flashlightOn ? "ON" : "OFF";
                 document.getElementById('flashlight-state').style.color = player.flashlightOn ? "#ffcc00" : "#666";
             }
 
-            // R 鍵：切換躲藏 (靠近櫃子時)
+            // R鍵：躲藏 (靠近櫃子時)
             if (key === 'r') {
-                let nearSpot = hidingSpots.some(spot => 
-                    player.x + player.w/2 > spot.x && player.x + player.w/2 < spot.x + spot.w
-                );
-
-                if (nearSpot) {
+                let isNearCabinet = player.x + player.w/2 > hideCabinet.x && player.x + player.w/2 < hideCabinet.x + hideCabinet.w;
+                if (isNearCabinet) {
                     player.isHiding = !player.isHiding;
                     if (player.isHiding) {
-                        player.flashlightOn = false; // 躲起來自動關手電筒
+                        player.flashlightOn = false;
                         document.getElementById('player-state').innerText = "已躲藏 (HIDE)";
                         document.getElementById('player-state').style.color = "#00ffff";
                         document.getElementById('flashlight-state').innerText = "OFF";
                     } else {
-                        document.getElementById('player-state').innerText = "正常探索中";
+                        document.getElementById('player-state').innerText = "安全探索中";
                         document.getElementById('player-state').style.color = "#00ff00";
                     }
                 }
@@ -144,182 +152,228 @@
         });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-        // 5. 邏輯更新
+        // 進入新房間的初始化
+        function enterNextRoom() {
+            currentRoom++;
+            document.getElementById('room-count').innerText = `Room ${currentRoom}`;
+            
+            // 玩家重設到左邊門口
+            player.x = 50;
+            player.y = groundY - player.h;
+            player.isHiding = false;
+            document.getElementById('player-state').innerText = "安全探索中";
+            document.getElementById('player-state').style.color = "#00ff00";
+
+            // 關閉之前的突發狀態
+            warningActive = false;
+            document.getElementById('monster-warning').style.display = 'none';
+            carnation.active = false;
+            anglerfish.active = false;
+            currentMonsterInRoom = null;
+
+            // 【核心觸發規則】
+            // 康乃馨：每 5 個房間出現 (5, 10, 15...)
+            if (currentRoom % 5 === 0) {
+                triggerMonsterWarning('carnation');
+            } 
+            // 海底魚：每 8 個房間出現 (8, 16, 24...)
+            else if (currentRoom % 8 === 0) {
+                triggerMonsterWarning('anglerfish');
+            }
+        }
+
+        function triggerMonsterWarning(type) {
+            warningActive = true;
+            warningTimer = 6.0; // 6秒倒數
+            currentMonsterInRoom = type;
+            document.getElementById('monster-warning').style.display = 'block';
+        }
+
+        // 5. 遊戲邏輯更新
+        let lastTime = performance.now();
         function update() {
-            // 如果正在躲藏，玩家不能移動，物理停止
-            if (player.isHiding) {
-                player.vx = 0;
-                player.vy = 0;
-            } else {
-                // 左右移動 (A, D)
+            const now = performance.now();
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+
+            // 6秒倒數邏輯
+            if (warningActive) {
+                warningTimer -= dt;
+                if (warningTimer <= 0) {
+                    warningActive = false;
+                    document.getElementById('monster-warning').style.display = 'none';
+                    
+                    // 時間到，怪物正式進場衝鋒！
+                    if (currentMonsterInRoom === 'carnation') {
+                        carnation.x = -100;
+                        carnation.active = true;
+                    } else if (currentMonsterInRoom === 'anglerfish') {
+                        anglerfish.x = 850;
+                        anglerfish.active = true;
+                    }
+                } else {
+                    // 更新倒數秒數提示
+                    document.getElementById('monster-warning').innerText = `⚠️ 警告：${currentMonsterInRoom === 'carnation' ? '康乃馨' : '海底魚'}即將襲來！剩餘 ${warningTimer.toFixed(1)} 秒躲好！！ ⚠️`;
+                }
+            }
+
+            // 玩家物理與移動
+            if (!player.isHiding) {
                 if (keys['a']) player.vx = -player.speed;
                 else if (keys['d']) player.vx = player.speed;
                 else player.vx = 0;
 
-                // 跳躍 (空白鍵)
                 if (keys[' '] && player.isGrounded) {
                     player.vy = -player.jumpForce;
                     player.isGrounded = false;
                 }
 
-                // 套用重力
                 player.vy += gravity;
-
-                // 更新位置
                 player.x += player.vx;
                 player.y += player.vy;
 
-                // 地面碰撞
                 if (player.y >= groundY - player.h) {
                     player.y = groundY - player.h;
                     player.vy = 0;
                     player.isGrounded = true;
                 }
 
-                // 邊界限制
+                // 邊界
                 if (player.x < 0) player.x = 0;
-                if (player.x > canvas.width - player.w) player.x = canvas.width - player.w;
+                
+                // 進入下一關的判定（走到最右邊的門）
+                if (player.x + player.w > nextDoor.x) {
+                    // 如果這時候怪物還在動，硬過會死，沒怪物時才能安全通關
+                    if (carnation.active || anglerfish.active || warningActive) {
+                        player.x = nextDoor.x - player.w; // 被卡住不能走
+                    } else {
+                        enterNextRoom();
+                    }
+                }
+            } else {
+                player.vx = 0;
+                player.vy = 0;
             }
 
-            // --- 怪物 AI 邏輯 ---
-            monsters.forEach(m => {
-                // 檢查玩家是否暴露 (沒躲藏，且手電筒亮著或距離太近)
-                let playerVisible = !player.isHiding && (player.flashlightOn || Math.abs(player.x - m.x) < 80);
-
-                if (m.type === 'carnation') {
-                    // 陸地怪物「康乃馨」AI
-                    if (playerVisible) {
-                        m.state = 'chase';
-                        // 往玩家方向衝刺
-                        m.vx = player.x > m.x ? m.chaseSpeed : -m.chaseSpeed;
-                    } else {
-                        m.state = 'patrol';
-                        // 恢復一般巡邏速度
-                        if (Math.abs(m.vx) !== m.baseSpeed) {
-                            m.vx = m.vx > 0 ? m.baseSpeed : -m.baseSpeed;
-                        }
-                        // 撞牆回頭
-                        if (m.x <= 0 || m.x >= canvas.width - m.w) m.vx *= -1;
-                    }
-                    m.x += m.vx;
-                } 
+            // --- 康乃馨衝刺邏輯 ---
+            if (carnation.active) {
+                carnation.x += carnation.speed; // 極速橫掃螢幕
                 
-                else if (m.type === 'anglerfish') {
-                    // 空中怪物「海底魚」AI
-                    m.bobTimer += 0.05;
-                    m.y = 100 + Math.sin(m.bobTimer) * 30; // 上下漂浮
-                    
-                    // 海底魚緩慢左右游動
-                    if (m.x <= 50 || m.x >= canvas.width - 100) m.vx *= -1;
-                    m.x += m.vx;
-
-                    // 如果玩家開著手電筒，海底魚會被光源吸引，緩慢往玩家靠攏
-                    if (playerVisible && player.flashlightOn) {
-                        m.x += (player.x - m.x) * 0.01;
-                    }
-                }
-
-                // --- 死亡碰撞判定 ---
+                // 殺戮碰撞判定
                 if (!player.isHiding) {
-                    if (player.x < m.x + m.w && player.x + player.w > m.x &&
-                        player.y < m.y + m.h && player.y + player.h > m.y) {
-                        alert(`你被 ${m.name} 抓到了！遊戲結束。`);
-                        // 重設遊戲
-                        player.x = 100;
-                        player.y = groundY - player.h;
-                        player.flashlightOn = true;
-                        player.isHiding = false;
-                        document.getElementById('player-state').innerText = "正常探索中";
+                    if (player.x < carnation.x + carnation.w && player.x + player.w > carnation.x) {
+                        gameOver('康乃馨');
                     }
                 }
-            });
+                // 衝出螢幕後消失，危機解除
+                if (carnation.x > canvas.width + 200) {
+                    carnation.active = false;
+                }
+            }
+
+            // --- 海底魚游動邏輯 ---
+            if (anglerfish.active) {
+                anglerfish.x += anglerfish.speed; // 從右往左游過來
+                anglerfish.bobTimer += 0.07;
+                anglerfish.y = 120 + Math.sin(anglerfish.bobTimer) * 40;
+
+                if (!player.isHiding) {
+                    if (player.x < anglerfish.x + anglerfish.w && player.x + player.w > anglerfish.x &&
+                        player.y < anglerfish.y + anglerfish.h && player.y + player.h > anglerfish.y) {
+                        gameOver('海底魚');
+                    }
+                }
+                if (anglerfish.x < -200) {
+                    anglerfish.active = false;
+                }
+            }
+        }
+
+        function gameOver(monsterName) {
+            alert(`☠️ 遊戲結束 ☠️\n你在 Room ${currentRoom} 被【${monsterName}】瞬間撕碎了！\n你沒能在 6 秒內成功 HIDE 躲好！`);
+            currentRoom = 1;
+            document.getElementById('room-count').innerText = "Room 1";
+            player.x = 50;
+            player.y = groundY - player.h;
+            player.isHiding = false;
+            warningActive = false;
+            carnation.active = false;
+            anglerfish.active = false;
+            document.getElementById('monster-warning').style.display = 'none';
+            document.getElementById('player-state').innerText = "安全探索中";
         }
 
         // 6. 畫面繪製
         function draw() {
-            // 背景黑幕（如果手電筒關閉，背景會變得極暗）
-            ctx.fillStyle = player.flashlightOn ? '#1a1a1a' : '#0a0a0a';
+            // 背景（手電筒不影響怪物，僅影響視野亮度）
+            ctx.fillStyle = player.flashlightOn ? '#1a1a1a' : '#090909';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 繪製地面
+            // 地面與前後門
             ctx.fillStyle = '#222';
             ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
-            ctx.fillStyle = '#333';
-            ctx.fillRect(0, groundY, canvas.width, 4); // 地平線
 
-            // 繪製躲藏點（置物櫃/陰暗門）
-            hidingSpots.forEach(spot => {
-                ctx.fillStyle = '#3a2e2b'; // 木質/鐵皮櫃顏色
-                ctx.fillRect(spot.x, spot.y, spot.w, spot.h);
-                // 櫃子花紋
-                ctx.strokeStyle = '#221a18';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(spot.x + 4, spot.y + 4, spot.w - 8, spot.h - 8);
-                // 提示字
-                ctx.fillStyle = '#888';
-                ctx.font = '10px Arial';
-                ctx.fillText("按R躲藏", spot.x - 2, spot.y - 8);
-            });
+            // 繪製起點門（左）與終點通關門（右）
+            ctx.fillStyle = '#443322';
+            ctx.fillRect(10, groundY - 90, 40, 90); // 起始門
+            ctx.fillRect(nextDoor.x, nextDoor.y, nextDoor.w, nextDoor.h); // 下一關門
+            ctx.fillStyle = '#ffffaa';
+            ctx.font = '11px Arial';
+            ctx.fillText("EXIT", nextDoor.x + 6, nextDoor.y - 10);
 
-            // 繪製玩家 (如果躲藏起來就不畫出本體，或者畫個半透明暗示)
+            // 繪製無限房間都有的 HIDE 櫃子
+            ctx.fillStyle = '#2e3d30'; // 鐵青色置物櫃
+            ctx.fillRect(hideCabinet.x, hideCabinet.y, hideCabinet.w, hideCabinet.h);
+            ctx.strokeStyle = '#151f16';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(hideCabinet.x + 5, hideCabinet.y + 5, hideCabinet.w - 10, hideCabinet.h - 10);
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px Arial';
+            ctx.fillText("HIDE [R]", hideCabinet.x + 2, hideCabinet.y - 10);
+
+            // 繪製玩家
             if (!player.isHiding) {
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(player.x, player.y, player.w, player.h);
 
-                // 手電筒光束效果
+                // 手電筒純視覺光束
                 if (player.flashlightOn) {
-                    ctx.fillStyle = 'rgba(255, 255, 200, 0.15)';
+                    ctx.fillStyle = 'rgba(255, 255, 200, 0.1)';
                     ctx.beginPath();
-                    ctx.moveTo(player.x + player.w, player.y + 15);
-                    ctx.lineTo(player.x + player.w + 180, player.y - 15);
-                    ctx.lineTo(player.x + player.w + 180, player.y + 45);
+                    ctx.moveTo(player.x + player.w, player.y + 12);
+                    ctx.lineTo(player.x + player.w + 140, player.y - 20);
+                    ctx.lineTo(player.x + player.w + 140, player.y + 50);
                     ctx.fill();
                 }
             } else {
-                // 躲藏時在櫃子顯示 HIDE 字樣
                 ctx.fillStyle = '#00ffff';
-                ctx.font = 'bold 12px Arial';
-                ctx.fillText("HIDDEN", player.x - 8, player.y - 10);
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText("已隱匿", hideCabinet.x + 2, hideCabinet.y + 40);
             }
 
-            // 繪製怪物
-            monsters.forEach(m => {
-                ctx.fillStyle = m.color;
-                ctx.fillRect(m.x, m.y, m.w, m.h);
+            // 繪製衝鋒的「康乃馨」
+            if (carnation.active) {
+                ctx.fillStyle = '#ff3366';
+                ctx.fillRect(carnation.x, carnation.y, carnation.w, carnation.h);
 
-                // 為怪物加上特色裝飾
-                if (m.type === 'carnation') {
-                    // 康乃馨：頂部畫一朵紅色的致命花瓣
-                    ctx.fillStyle = '#ff0000';
-                    ctx.beginPath();
-                    ctx.arc(m.x + m.w/2, m.y, 10, 0, Math.PI * 2);
-                    ctx.fill();
+                // 巨大的紅色康乃馨花狀大口
+                ctx.fillStyle = '#990022';
+                ctx.beginPath();
+                ctx.arc(carnation.x + carnation.w, carnation.y + carnation.h/2, 20, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
-                    // 暴走狀態眼睛變紅
-                    ctx.fillStyle = m.state === 'chase' ? '#fff' : '#000';
-                    ctx.fillRect(m.vx > 0 ? m.x + m.w - 8 : m.x + 4, m.y + 12, 4, 4);
-                } 
-                else if (m.type === 'anglerfish') {
-                    // 海底魚：前方畫一個發光的誘餌（鮟鱇魚燈）
-                    ctx.strokeStyle = '#fff';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(m.x, m.y + 10);
-                    ctx.quadraticCurveTo(m.x - 10, m.y - 10, m.x - 15, m.y);
-                    ctx.stroke();
+            // 繪製「海底魚」
+            if (anglerfish.active) {
+                ctx.fillStyle = '#3399ff';
+                ctx.fillRect(anglerfish.x, anglerfish.y, anglerfish.w, anglerfish.h);
 
-                    // 誘餌發光球
-                    ctx.fillStyle = '#ffff00';
-                    ctx.beginPath();
-                    ctx.arc(m.x - 15, m.y, 5, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                // 怪物名稱標籤
-                ctx.fillStyle = '#fff';
-                ctx.font = '11px Arial';
-                ctx.fillText(m.name, m.x - 5, m.y - 12);
-            });
+                // 鮟鱇發光發亮燈泡
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(anglerfish.x - 10, anglerfish.y + 10, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         // 7. 遊戲主迴圈

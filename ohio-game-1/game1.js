@@ -1,21 +1,28 @@
 /**
- * Ohio Game 1 - 關卡 1 專屬邏輯控制與事件綁定 (平板行動端完全修復版)
+ * Ohio Game 1 - 關卡 1 專屬邏輯控制與事件綁定 (E鍵手雷獨立版)
  */
 
 // 監聽鍵盤與手持切換
 window.addEventListener("keydown", e => {
     keys[e.key.toLowerCase()] = true;
     keys[e.code] = true;
+    
+    // 工具欄快捷切換
     if(e.key === "1") switchSlot(1);
     if(e.key === "2") switchSlot(2);
     if(e.key === "3") switchSlot(3);
+    
+    // 【新需求】電腦端按下「E 鍵」，直接觸發丟手雷功能
+    if(e.key === "e") {
+        throwGrenadeDirectly();
+    }
 });
 window.addEventListener("keyup", e => {
     keys[e.key.toLowerCase()] = false;
     keys[e.code] = false;
 });
 
-// 手機與平板端虛擬按鍵觸控事件綁定 (加入 passive: false 防止平板瀏覽器手勢干擾)
+// 手機與平板端虛擬按鍵觸控事件綁定
 function bindTouch(btnId, keyName) {
     const btn = document.getElementById(btnId);
     if (!btn) return;
@@ -29,25 +36,54 @@ function bindTouch(btnId, keyName) {
     }, { passive: false });
 }
 
-// 綁定 A、D 移動與跳躍
 bindTouch("btn-left", "a");
 bindTouch("btn-right", "d");
 bindTouch("btn-jump", "space");
 
-// 【核心修復】精確對接平板副武器/防禦按鈕，呼叫 game.js 裡面的 useActiveItem
+// 【新需求】平板行動端點擊「E 按鈕」，直接丟出手雷
+const btnGrenadeE = document.getElementById("btn-grenade-e");
+if (btnGrenadeE) {
+    btnGrenadeE.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        throwGrenadeDirectly();
+    }, { passive: false });
+}
+
+// 平板行動端點擊「防疫盾」按鈕，專門用來開啟防禦盾
 const btnDefend = document.getElementById("btn-defend");
 if (btnDefend) {
     btnDefend.addEventListener("touchstart", (e) => { 
         e.preventDefault(); 
-        if (typeof useActiveItem === "function") {
-            useActiveItem(); 
-        } else {
-            console.log("正在等待核心引擎載入 useActiveItem...");
-        }
+        activateShieldDirectly();
     }, { passive: false });
 }
 
-// 電腦滑鼠點擊畫布也同樣呼叫副武器
+// 獨立呼叫：隨時直接丟手雷邏輯
+function throwGrenadeDirectly() {
+    if(gameState !== "BOSS") return;
+    
+    if (grenadeCooldown <= 0) {
+        projectiles.push({ x: player.x + 20, y: player.y + 10, vx: 12, vy: -6, type: "GRENADE", width: 15, height: 15 });
+        grenadeCooldown = 5000; // 5秒 CD
+    } else {
+        Tool.showMsg("⏳ 神聖手雷冷卻中！");
+    }
+}
+
+// 獨立呼叫：隨時直接開防禦盾邏輯
+function activateShieldDirectly() {
+    if(gameState !== "BOSS") return;
+    
+    if (shieldCooldown <= 0 && shieldActiveTime <= 0) {
+        shieldActiveTime = 8000; 
+        shieldCooldown = 12000; 
+        Tool.showMsg("🛡️ 防疫盾已啟動！持續 8 秒免疫傷害");
+    } else {
+        Tool.showMsg("⏳ 防疫盾冷卻中！");
+    }
+}
+
+// 電腦滑鼠點擊畫布做為彈性副武觸發（觸發當前選中道具，如手雷或防疫盾）
 canvas.addEventListener("mousedown", () => {
     if (typeof useActiveItem === "function") {
         useActiveItem();
@@ -72,7 +108,6 @@ function startGame() {
     gameState = "PARKOUR";
     player.reset();
 
-    // 關卡 1 跑酷平台配置
     platforms = [
         {x: 0, y: 550, width: 300, height: 50},
         {x: 400, y: 450, width: 200, height: 30},
@@ -86,14 +121,8 @@ function startGame() {
     door = {x: 930, y: 400, width: 40, height: 100};
 
     boss = null;
-    items = []; 
-    projectiles = []; 
-    bossAttacks = []; 
-    particles = [];
-    grenadeCooldown = 0; 
-    shieldCooldown = 0; 
-    shieldActiveTime = 0; 
-    autoAttackTimer = 0;
+    items = []; projectiles = []; bossAttacks = []; particles = [];
+    grenadeCooldown = 0; shieldCooldown = 0; shieldActiveTime = 0; autoAttackTimer = 0;
     
     const bossUi = document.getElementById("boss-ui");
     if (bossUi) bossUi.style.display = "none";
@@ -104,11 +133,9 @@ function startGame() {
     bossMusic.pause();
     bossMusic.currentTime = 0;
 
-    // 啟動 game.js 的核心主迴圈
     requestAnimationFrame(gameLoop);
 }
 
-// 觸發關卡 1 Boss 戰
 function startBossBattle() {
     gameState = "BOSS";
     Tool.showMsg("🔊 OHIO 巨鴨 出現！BOSS 戰開始！");
@@ -117,11 +144,10 @@ function startBossBattle() {
     if (bossUi) bossUi.style.display = "block";
     
     const stageTxt = document.getElementById("stage-text");
-    if (stageTxt) stageTxt.innerText = "手持鍵盤靠近牠會自動進行瘋狂攻擊！";
+    if (stageTxt) stageTxt.innerText = "手持鍵盤靠近牠會自動進行瘋狂攻擊！按 E 丟手雷！";
     
-    bossMusic.play().catch(() => console.log("等待手動點擊或授權後播放音效"));
+    bossMusic.play().catch(() => console.log("等待授權後播放音效"));
 
-    // 切換為適合戰鬥的平坦 Boss 地形
     platforms = [
         {x: 0, y: 550, width: 1000, height: 50}, 
         {x: 150, y: 400, width: 150, height: 20},  
@@ -132,7 +158,6 @@ function startBossBattle() {
     player.y = 400;
     boss = new Boss();
 
-    // 關卡 1 物資空投計時器（每 4 秒空投一次）
     const dropInterval = setInterval(() => {
         if (gameState === "BOSS") {
             let type = Math.random() > 0.5 ? "MEDKIT" : "BOMB";
@@ -143,7 +168,6 @@ function startBossBattle() {
     }, 4000);
 }
 
-// 每 幀 由 game.js 的 updateEngine() 呼叫
 function updateGame1Logic() {
     if (gameState === "PARKOUR") {
         if (!keyItem.collected && Tool.checkCollision(player, keyItem)) {
@@ -160,7 +184,7 @@ function updateGame1Logic() {
         let shockDamage = boss.update(player, bossAttacks, particles);
         if (shockDamage > 0) damagePlayer(shockDamage);
 
-        // 手持「1 鍵盤」時拿隱藏範圍與巨鴨做高精度碰撞
+        // 鍵盤隱藏感應區自動攻擊
         if (currentSlot === 1) {
             if (Tool.checkCollision(player.attackBox, boss)) {
                 autoAttackTimer++;
@@ -173,10 +197,8 @@ function updateGame1Logic() {
             }
         }
 
-        // 更新與拾取掉落補給、自動炸彈
         items.forEach((item, idx) => {
-            item.vy += 0.2; 
-            item.y += item.vy;
+            item.vy += 0.2; item.y += item.vy;
             if (item.y >= 525) { item.y = 525; item.vy = 0; }
             
             if (Tool.checkCollision(player, item)) {
@@ -193,7 +215,6 @@ function updateGame1Logic() {
     }
 }
 
-// 渲染關卡 1 專屬物件
 function renderGame1Objects(renderCtx) {
     if (gameState === "PARKOUR") {
         if (!keyItem.collected) {
@@ -204,11 +225,8 @@ function renderGame1Objects(renderCtx) {
         }
         renderCtx.fillStyle = player.hasKey ? "#00ff00" : "#ff3333"; 
         renderCtx.fillRect(door.x, door.y, door.width, door.height);
-        renderCtx.fillStyle = "#fff"; 
-        renderCtx.font = "14px Arial"; 
-        renderCtx.fillText(player.hasKey ? "🚪 開門" : "🔒 鎖住", door.x - 5, door.y - 10);
+        renderCtx.fillStyle = "#fff"; renderCtx.font = "14px Arial"; renderCtx.fillText(player.hasKey ? "🚪 開門" : "🔒 鎖住", door.x - 5, door.y - 10);
     }
 }
 
-// 啟動第一關
 startGame();
